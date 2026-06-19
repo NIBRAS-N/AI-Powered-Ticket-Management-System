@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+Thumbs.db
+
+# Prisma
+backend/generated/
+
+# Vite
+frontend/.vite/
+
+# Bun
+bun.lock

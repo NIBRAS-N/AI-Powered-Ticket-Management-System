@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  AGENT
+}
+
+enum TicketStatus {
+  OPEN
+  RESOLVED
+  CLOSED
+}
+
+enum TicketCategory {
+  GENERAL
+  TECHNICAL
+  REFUND
+}
+
+enum SenderType {
+  STUDENT
+  AGENT
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(AGENT)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions        Session[]
+  assignedTickets Ticket[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Ticket {
+  id          String         @id @default(uuid())
+  subject     String
+  description String
+  senderEmail String
+  senderName  String
+  status      TicketStatus   @default(OPEN)
+  category    TicketCategory @default(GENERAL)
+  assigneeId  String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  assignee User?     @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages Message[]
+
+  @@index([status])
+  @@index([category])
+  @@index([assigneeId])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model Message {
+  id         String     @id @default(uuid())
+  ticketId   String
+  senderType SenderType
+  senderName String
+  content    String
+  createdAt  DateTime   @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("messages")
+}
+
+model KnowledgeBaseArticle {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  category  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("knowledge_base_articles")
+}

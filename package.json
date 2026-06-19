@@ -1,0 +1,16 @@
+{
+  "name": "ai-ticket-system",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "dev": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
+    "dev:backend": "bun run --filter backend dev",
+    "dev:frontend": "bun run --filter frontend dev",
+    "build": "bun run --filter backend build && bun run --filter frontend build",
+    "lint": "bun run --filter '*' lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
+  }
+}
