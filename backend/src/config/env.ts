@@ -8,4 +8,6 @@ export const env = {
   BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
   CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:5173",
   NODE_ENV: process.env.NODE_ENV || "development",
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || "admin@example.com",
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "password123",
 } as const;

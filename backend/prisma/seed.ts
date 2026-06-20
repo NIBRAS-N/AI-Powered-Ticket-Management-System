@@ -1,32 +1,44 @@
-import { auth } from "../src/lib/auth.js";
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
 import prisma from "../src/utils/prisma.js";
+import { env } from "../src/config/env.js";
+import { Role } from "../src/constants/role.js";
+
+const seedAuth = betterAuth({
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  secret: env.BETTER_AUTH_SECRET,
+  baseURL: env.BETTER_AUTH_URL,
+  emailAndPassword: {
+    enabled: true,
+  },
+});
 
 async function main() {
   const existing = await prisma.user.findUnique({
-    where: { email: "admin@ticketsystem.com" },
+    where: { email: env.ADMIN_EMAIL },
   });
 
   if (!existing) {
-    const result = await auth.api.signUpEmail({
+    const result = await seedAuth.api.signUpEmail({
       body: {
         name: "System Admin",
-        email: "admin@ticketsystem.com",
-        password: "admin123",
+        email: env.ADMIN_EMAIL,
+        password: env.ADMIN_PASSWORD,
       },
     });
 
     await prisma.user.update({
       where: { id: result.user.id },
-      data: { role: "ADMIN" },
+      data: { role: Role.ADMIN },
     });
 
     console.log(`Seeded admin user: ${result.user.email}`);
   } else {
     await prisma.user.update({
       where: { id: existing.id },
-      data: { role: "ADMIN" },
+      data: { role: Role.ADMIN },
     });
-    console.log(`Admin user already exists: admin@ticketsystem.com`);
+    console.log(`Admin user already exists: ${env.ADMIN_EMAIL}`);
   }
 
   const articles = [
