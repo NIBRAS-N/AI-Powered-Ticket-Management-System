@@ -33,7 +33,7 @@ bun run dev:frontend   # Frontend only (vite)
 # Backend database commands (run from /backend)
 bun run db:generate    # Generate Prisma client
 bun run db:migrate     # Run Prisma migrations
-bun run db:seed        # Seed admin account + KB articles
+bun run db:seed        # Seed admin + agent accounts + KB articles
 bun run db:studio      # Open Prisma Studio
 ```
 
@@ -53,6 +53,8 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - `authClient.signIn.email({ email, password })` for login
 - `AuthProvider` context at `frontend/src/context/AuthContext.tsx` wraps the app
 - `ProtectedRoute` component guards authenticated routes
+- `AdminRoute` component guards admin-only routes (checks `user.role === "ADMIN"`)
+- Roles: `ADMIN`, `AGENT` (enum at `backend/src/constants/role.ts`)
 - Session-based auth via HTTP-only cookies (not JWT)
 
 ## UI Components — shadcn/ui
@@ -74,4 +76,6 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - Shared TypeScript types at `frontend/src/types/index.ts`
 - All API routes are prefixed with `/api`
 - Session auth via HTTP-only cookies
-- Seed admin credentials: `admin@ticketsystem.com` / `admin123`
+- Seed admin credentials: `admin@example.com` / `admin123` (via env vars `ADMIN_EMAIL` / `ADMIN_PASSWORD`)
+- Seed agent credentials: `agent@example.com` / `password123`
+- Admin-only pages (e.g. `/users`) use `AdminRoute` guard; navbar links conditionally render by role
