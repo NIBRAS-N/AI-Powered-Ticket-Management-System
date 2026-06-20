@@ -73,7 +73,7 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - **Utility**: `cn()` helper at `frontend/src/lib/utils.ts` (clsx + tailwind-merge)
 - **Config**: `frontend/components.json` (rsc: false, cssVariables: true, lucide icons)
 - **Add components**: `bunx shadcn@latest add <component> --yes` from `/frontend`
-- **Installed**: button, card, input, label, table, badge
+- **Installed**: button, card, input, label, table, badge, skeleton
 - Use shadcn theme tokens (`bg-background`, `text-destructive`, etc.) instead of raw Tailwind colors
 - Forms use `react-hook-form` + `zod` + shadcn `Input`/`Label`/`Button` with `aria-invalid` for error states
 
