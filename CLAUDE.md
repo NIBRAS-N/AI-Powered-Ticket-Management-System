@@ -77,15 +77,18 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - **Utility**: `cn()` helper at `frontend/src/lib/utils.ts` (clsx + tailwind-merge)
 - **Config**: `frontend/components.json` (rsc: false, cssVariables: true, lucide icons)
 - **Add components**: `bunx shadcn@latest add <component> --yes` from `/frontend`
-- **Installed**: button, card, input, label, table, badge, skeleton
+- **Installed**: button, card, dialog, input, label, table, badge, skeleton
 - Use shadcn theme tokens (`bg-background`, `text-destructive`, etc.) instead of raw Tailwind colors
 - Forms use `react-hook-form` + `zod` + shadcn `Input`/`Label`/`Button` with `aria-invalid` for error states
 
 ## Conventions
 
+- Backend uses Express 5 — async route handlers don't need `try/catch` + `next(error)`, rejected promises are forwarded to the error handler automatically
+- Backend request validation uses `zod` — define a schema, call `safeParse(req.body)`, return first issue message on failure
 - Backend env config lives in `backend/src/config/env.ts`
 - Prisma client singleton at `backend/src/utils/prisma.ts`
 - Frontend API client at `frontend/src/services/api.ts` (Axios with credentials + 401 interceptor)
+- Frontend data fetching uses `useQuery` + `api.get()`, mutations use `useMutation` + `api.post()`/`api.put()`/`api.delete()` with `queryClient.invalidateQueries()` on success
 - Shared TypeScript types at `frontend/src/types/index.ts`
 - All API routes are prefixed with `/api`
 - Session auth via HTTP-only cookies
@@ -97,8 +100,11 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 ## Features
 
 ### User Management (Admin-only)
-- **Backend**: `GET /api/users` at `backend/src/routes/users.ts` — paginated user list (`?page=1&limit=10`), protected by `requireAuth` + `requireAdmin`
+- **Backend**: `backend/src/routes/users.ts`, protected by `requireAuth` + `requireAdmin`
+  - `GET /api/users` — paginated user list (`?page=1&limit=10`)
+  - `POST /api/users` — create new user (`{ name, email, password }`, validated with zod), uses `adminAuth.api.signUpEmail()` for password hashing
 - **Frontend**: `frontend/src/pages/UsersPage.tsx` — paginated table (Name, Email, Role, Status, Joined) using TanStack Query
+- **Create User**: `frontend/src/components/CreateUserDialog.tsx` — modal form using `useMutation` + `api.post("/users", data)`, invalidates `["users"]` query on success
 - Route `/users` is guarded by `AdminRoute`; navbar "Users" link renders only for admins
 - Response shape follows `PaginatedResponse<User>` from `frontend/src/types/index.ts`
 

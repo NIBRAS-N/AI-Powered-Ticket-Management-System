@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import api from "@/services/api";
 import type { User, PaginatedResponse } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import CreateUserDialog from "@/components/CreateUserDialog";
 import {
   Card,
   CardContent,
@@ -34,6 +35,7 @@ function fetchUsers(page: number) {
 
 export default function UsersPage() {
   const [page, setPage] = useState(1);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["users", page],
@@ -42,9 +44,15 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-        <p className="text-muted-foreground">Manage system users and roles.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <p className="text-muted-foreground">Manage system users and roles.</p>
+        </div>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <UserPlus className="size-4" />
+          Create User
+        </Button>
       </div>
 
       <Card>
@@ -152,6 +160,11 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <CreateUserDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ vi.mock("@/services/api", () => {
   return {
     default: {
       get: vi.fn(),
+      post: vi.fn(),
     },
   };
 });
@@ -325,6 +326,115 @@ describe("UsersPage", () => {
 
     expect(mockApi.get).toHaveBeenCalledWith("/users", {
       params: { page: 1, limit: 10 },
+    });
+  });
+
+  describe("create user", () => {
+    it("shows Create User button", async () => {
+      mockUsersResponse(createPaginatedResponse([createUser()]));
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+
+      expect(
+        screen.getByRole("button", { name: /create user/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("opens dialog when Create User button is clicked", async () => {
+      const user = userEvent.setup();
+      mockUsersResponse(createPaginatedResponse([createUser()]));
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /create user/i }));
+
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByText("Create New User")).toBeInTheDocument();
+    });
+
+    it("validates required fields on submit", async () => {
+      const user = userEvent.setup();
+      mockUsersResponse(createPaginatedResponse([createUser()]));
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /create user/i }));
+
+      await user.click(screen.getByRole("button", { name: /^create user$/i }));
+
+      expect(
+        await screen.findByText("Name must be at least 3 characters"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Please enter a valid email"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Password must be at least 8 characters"),
+      ).toBeInTheDocument();
+    });
+
+    it("submits form and closes dialog on success", async () => {
+      const user = userEvent.setup();
+      mockUsersResponse(createPaginatedResponse([createUser()]));
+      mockApi.post.mockResolvedValue({
+        data: createUser({
+          id: "new-user",
+          name: "New Agent",
+          email: "new@example.com",
+          role: "AGENT",
+        }),
+      });
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /create user/i }));
+
+      await user.type(screen.getByLabelText("Name"), "New Agent");
+      await user.type(screen.getByLabelText("Email"), "new@example.com");
+      await user.type(screen.getByLabelText("Password"), "password123");
+
+      await user.click(screen.getByRole("button", { name: /^create user$/i }));
+
+      await vi.waitFor(() => {
+        expect(mockApi.post).toHaveBeenCalledWith("/users", {
+          name: "New Agent",
+          email: "new@example.com",
+          password: "password123",
+        });
+      });
+
+      await vi.waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+    });
+
+    it("shows server error on duplicate email", async () => {
+      const user = userEvent.setup();
+      mockUsersResponse(createPaginatedResponse([createUser()]));
+      mockApi.post.mockRejectedValue({
+        response: {
+          data: { error: "A user with this email already exists" },
+        },
+      });
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /create user/i }));
+
+      await user.type(screen.getByLabelText("Name"), "Duplicate User");
+      await user.type(screen.getByLabelText("Email"), "alice@example.com");
+      await user.type(screen.getByLabelText("Password"), "password123");
+
+      await user.click(screen.getByRole("button", { name: /^create user$/i }));
+
+      expect(
+        await screen.findByText("A user with this email already exists"),
+      ).toBeInTheDocument();
+
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
   });
 });
