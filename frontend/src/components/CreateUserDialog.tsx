@@ -92,7 +92,7 @@ export default function CreateUserDialog({
             <Input
               id="create-name"
               placeholder="Full name"
-              aria-invalid={!!errors.name}
+              aria-invalid={errors.name ? true : undefined}
               {...register("name")}
             />
             {errors.name && (
@@ -108,7 +108,7 @@ export default function CreateUserDialog({
               id="create-email"
               type="email"
               placeholder="user@example.com"
-              aria-invalid={!!errors.email}
+              aria-invalid={errors.email ? true : undefined}
               {...register("email")}
             />
             {errors.email && (
@@ -123,7 +123,7 @@ export default function CreateUserDialog({
             <Input
               id="create-password"
               type="password"
-              aria-invalid={!!errors.password}
+              aria-invalid={errors.password ? true : undefined}
               {...register("password")}
             />
             {errors.password && (

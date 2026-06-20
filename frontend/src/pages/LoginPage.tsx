@@ -78,7 +78,7 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 placeholder="you@example.com"
-                aria-invalid={!!errors.email}
+                aria-invalid={errors.email ? true : undefined}
                 {...register("email")}
               />
               {errors.email && (
@@ -93,7 +93,7 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                aria-invalid={!!errors.password}
+                aria-invalid={errors.password ? true : undefined}
                 {...register("password")}
               />
               {errors.password && (
