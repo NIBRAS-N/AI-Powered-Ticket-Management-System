@@ -45,6 +45,27 @@ All library documentation must be fetched from context7 MCP server before writin
 
 Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for feature requirements and `tech-stack.md` for architecture decisions.
 
+## Authentication
+
+- **Library**: `better-auth` (backend) + `better-auth/react` (frontend)
+- Frontend auth client at `frontend/src/lib/auth-client.ts` using `createAuthClient()`
+- `authClient.useSession()` → `{ data: session, isPending }` for session state
+- `authClient.signIn.email({ email, password })` for login
+- `AuthProvider` context at `frontend/src/context/AuthContext.tsx` wraps the app
+- `ProtectedRoute` component guards authenticated routes
+- Session-based auth via HTTP-only cookies (not JWT)
+
+## UI Components — shadcn/ui
+
+- **Setup**: shadcn/ui with `new-york` style, `neutral` base color, Tailwind CSS v4
+- **Path alias**: `@/*` → `./src/*` (configured in `tsconfig.json` + `vite.config.ts`)
+- **Utility**: `cn()` helper at `frontend/src/lib/utils.ts` (clsx + tailwind-merge)
+- **Config**: `frontend/components.json` (rsc: false, cssVariables: true, lucide icons)
+- **Add components**: `bunx shadcn@latest add <component> --yes` from `/frontend`
+- **Installed**: button, card, input, label
+- Use shadcn theme tokens (`bg-background`, `text-destructive`, etc.) instead of raw Tailwind colors
+- Forms use `react-hook-form` + `zod` + shadcn `Input`/`Label`/`Button` with `aria-invalid` for error states
+
 ## Conventions
 
 - Backend env config lives in `backend/src/config/env.ts`
