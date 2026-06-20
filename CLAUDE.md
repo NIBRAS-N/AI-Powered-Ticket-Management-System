@@ -92,10 +92,4 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 
 ## E2E Testing — Playwright
 
-- **Test database**: `ticket_system_test` (separate from dev `ticket_system`)
-- **Test ports**: backend on 3001, frontend on 5174 (Vite `--mode test`)
-- **Env config**: `backend/.env.test` loaded via `dotenv-cli`
-- **Global setup**: runs Prisma migrations + seed against test DB before tests
-- **Global teardown**: resets test DB after tests
-- **Test directory**: `/e2e` — all E2E test files go here
-- Vite config is mode-aware: `--mode test` switches proxy target to port 3001 and serves on 5174
+E2E tests use a separate `ticket_system_test` database with isolated ports (backend 3001, frontend 5174). **Always use the `e2e-test-writer` agent to write E2E tests** — do not write Playwright tests directly. The agent has full testing instructions, patterns, and project-specific configuration (`.claude/agents/e2e-test-writer.md`).
