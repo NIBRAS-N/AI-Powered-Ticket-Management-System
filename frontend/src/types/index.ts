@@ -16,6 +16,25 @@ export interface User {
   updatedAt: string;
 }
 
+export interface Session {
+  id: string;
+  expiresAt: string;
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+}
+
+export interface AuthSession {
+  user: User;
+  session: Session;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
 export interface Ticket {
   id: string;
   subject: string;
