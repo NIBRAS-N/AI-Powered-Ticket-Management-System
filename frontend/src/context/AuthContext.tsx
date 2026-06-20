@@ -1,31 +1,22 @@
 import { createContext, useContext, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
-import api from "../services/api";
-import type { AuthSession, User } from "../types";
+import { authClient } from "../lib/auth-client";
+import type { User } from "../types";
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  isPending: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data, isLoading } = useQuery<AuthSession>({
-    queryKey: ["auth", "session"],
-    queryFn: async () => {
-      const response = await api.get<AuthSession>("/auth/get-session");
-      return response.data;
-    },
-    retry: false,
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: session, isPending } = authClient.useSession();
 
-  const user = data?.user ?? null;
+  const user = (session?.user as unknown as User) ?? null;
   const isAuthenticated = !!user;
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
@@ -34,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isPending }}>
       {children}
     </AuthContext.Provider>
   );

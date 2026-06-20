@@ -1,14 +1,29 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { authClient } from "../lib/auth-client";
+
+const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const { data: session, isPending } = authClient.useSession();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+  });
 
   if (isPending) {
     return (
@@ -22,19 +37,16 @@ export default function LoginPage() {
     return <Navigate to="/" replace />;
   }
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
+  const onSubmit = async (data: LoginForm) => {
+    setServerError(null);
 
-    const { error: signInError } = await authClient.signIn.email({
-      email,
-      password,
+    const { error } = await authClient.signIn.email({
+      email: data.email,
+      password: data.password,
     });
 
-    if (signInError) {
-      setError(signInError.message ?? "Invalid email or password");
-      setIsSubmitting(false);
+    if (error) {
+      setServerError(error.message ?? "Invalid email or password");
     } else {
       navigate("/", { replace: true });
     }
@@ -48,7 +60,7 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500 mt-1">AI Ticket System</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
             <label
               htmlFor="email"
@@ -59,12 +71,13 @@ export default function LoginPage() {
             <input
               id="email"
               type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              {...register("email")}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="you@example.com"
             />
+            {errors.email && (
+              <p className="text-sm text-red-600 mt-1">{errors.email.message}</p>
+            )}
           </div>
 
           <div>
@@ -77,15 +90,16 @@ export default function LoginPage() {
             <input
               id="password"
               type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              {...register("password")}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            {errors.password && (
+              <p className="text-sm text-red-600 mt-1">{errors.password.message}</p>
+            )}
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
+          {serverError && (
+            <p className="text-sm text-red-600">{serverError}</p>
           )}
 
           <button

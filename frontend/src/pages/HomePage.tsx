@@ -1,7 +1,7 @@
-import { useAuth } from "../hooks/useAuth";
+import { useAuthContext } from "../context/AuthContext";
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

@@ -1,7 +1,18 @@
-import { useAuth } from "../hooks/useAuth";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../context/AuthContext";
+import { authClient } from "../lib/auth-client";
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuthContext();
+  const navigate = useNavigate();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    await authClient.signOut();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <nav className="bg-white border-b border-gray-200">
@@ -11,11 +22,11 @@ export default function Navbar() {
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-700">{user?.name}</span>
             <button
-              onClick={() => logout.mutate()}
-              disabled={logout.isPending}
+              onClick={handleSignOut}
+              disabled={isSigningOut}
               className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
             >
-              {logout.isPending ? "Signing out..." : "Sign Out"}
+              {isSigningOut ? "Signing out..." : "Sign Out"}
             </button>
           </div>
         </div>
