@@ -1,0 +1,3 @@
+- [E2E Test Infrastructure](e2e-test-infrastructure.md) — Playwright config, test DB, ports, global setup/teardown details
+- [Auth UI Locators](auth-ui-locators.md) — Login page, navbar, and home page locator patterns verified against source
+- [Sign-Up Disabled](signup-disabled.md) — HTTP sign-up endpoint is disabled; agent users must be created via server-side API
