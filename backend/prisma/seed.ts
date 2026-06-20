@@ -1,24 +1,33 @@
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import { auth } from "../src/lib/auth.js";
+import prisma from "../src/utils/prisma.js";
 
 async function main() {
-  const adminPassword = await bcrypt.hash("admin123", 12);
-
-  const admin = await prisma.user.upsert({
+  const existing = await prisma.user.findUnique({
     where: { email: "admin@ticketsystem.com" },
-    update: {},
-    create: {
-      name: "System Admin",
-      email: "admin@ticketsystem.com",
-      passwordHash: adminPassword,
-      role: "ADMIN",
-      isActive: true,
-    },
   });
 
-  console.log(`Seeded admin user: ${admin.email}`);
+  if (!existing) {
+    const result = await auth.api.signUpEmail({
+      body: {
+        name: "System Admin",
+        email: "admin@ticketsystem.com",
+        password: "admin123",
+      },
+    });
+
+    await prisma.user.update({
+      where: { id: result.user.id },
+      data: { role: "ADMIN" },
+    });
+
+    console.log(`Seeded admin user: ${result.user.email}`);
+  } else {
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: { role: "ADMIN" },
+    });
+    console.log(`Admin user already exists: admin@ticketsystem.com`);
+  }
 
   const articles = [
     {
