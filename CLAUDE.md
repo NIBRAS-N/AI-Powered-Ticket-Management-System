@@ -12,6 +12,7 @@ A full-stack AI-powered ticket management system for customer support operations
 - **Database**: PostgreSQL + Prisma ORM
 - **AI**: Claude API (Anthropic SDK) for classification, summaries, suggested replies
 - **Email**: SendGrid/Mailgun for inbound/outbound
+- **E2E Testing**: Playwright (Chromium, separate test database)
 
 ## Project Structure
 
@@ -20,6 +21,7 @@ Monorepo with Bun workspaces:
 ```
 /backend    → Express API (port 3000)
 /frontend   → React SPA via Vite (port 5173, proxies /api → backend)
+/e2e        → Playwright E2E tests
 ```
 
 ## Key Commands
@@ -35,6 +37,13 @@ bun run db:generate    # Generate Prisma client
 bun run db:migrate     # Run Prisma migrations
 bun run db:seed        # Seed admin + agent accounts + KB articles
 bun run db:studio      # Open Prisma Studio
+
+# E2E testing (run from root)
+bun run test:e2e       # Run Playwright E2E tests
+bun run test:e2e:ui    # Open Playwright UI mode
+bun run test:e2e:headed # Run tests in headed browser
+bun run test:db:setup  # Migrate + seed test database
+bun run test:db:reset  # Reset test database
 ```
 
 ## Documentation — Use context7
@@ -79,3 +88,14 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - Seed admin credentials: `admin@example.com` / `admin123` (via env vars `ADMIN_EMAIL` / `ADMIN_PASSWORD`)
 - Seed agent credentials: `agent@example.com` / `password123`
 - Admin-only pages (e.g. `/users`) use `AdminRoute` guard; navbar links conditionally render by role
+- Rate limiting (`express-rate-limit`) is enabled only in production (`NODE_ENV=production`)
+
+## E2E Testing — Playwright
+
+- **Test database**: `ticket_system_test` (separate from dev `ticket_system`)
+- **Test ports**: backend on 3001, frontend on 5174 (Vite `--mode test`)
+- **Env config**: `backend/.env.test` loaded via `dotenv-cli`
+- **Global setup**: runs Prisma migrations + seed against test DB before tests
+- **Global teardown**: resets test DB after tests
+- **Test directory**: `/e2e` — all E2E test files go here
+- Vite config is mode-aware: `--mode test` switches proxy target to port 3001 and serves on 5174

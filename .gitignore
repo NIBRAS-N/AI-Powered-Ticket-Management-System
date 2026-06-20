@@ -13,3 +13,14 @@ frontend/.vite/
 
 # Bun
 bun.lock
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/e2e/.auth/
+
+# Test env files
+backend/.env.test
+frontend/.env.test

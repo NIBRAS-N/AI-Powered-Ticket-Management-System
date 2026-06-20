@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -11,12 +11,12 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: mode === "test" ? 5174 : 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: mode === "test" ? "http://localhost:3001" : "http://localhost:3000",
         changeOrigin: true,
       },
     },
   },
-});
+}));

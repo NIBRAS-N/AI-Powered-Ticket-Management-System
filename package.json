@@ -7,10 +7,17 @@
     "dev:backend": "bun run --filter backend dev",
     "dev:frontend": "bun run --filter frontend dev",
     "build": "bun run --filter backend build && bun run --filter frontend build",
-    "lint": "bun run --filter '*' lint"
+    "lint": "bun run --filter '*' lint",
+    "test:e2e": "bunx playwright test",
+    "test:e2e:ui": "bunx playwright test --ui",
+    "test:e2e:headed": "bunx playwright test --headed",
+    "test:db:setup": "cd backend && bunx dotenv -e .env.test -- bunx prisma migrate deploy && bunx dotenv -e .env.test -- tsx prisma/seed.ts",
+    "test:db:reset": "cd backend && bunx dotenv -e .env.test -- bunx prisma migrate reset --force --skip-seed"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "concurrently": "^9.1.2",
+    "dotenv-cli": "^11.0.0",
     "typescript": "^5.8.3"
   }
 }
