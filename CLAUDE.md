@@ -73,7 +73,7 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - **Utility**: `cn()` helper at `frontend/src/lib/utils.ts` (clsx + tailwind-merge)
 - **Config**: `frontend/components.json` (rsc: false, cssVariables: true, lucide icons)
 - **Add components**: `bunx shadcn@latest add <component> --yes` from `/frontend`
-- **Installed**: button, card, input, label
+- **Installed**: button, card, input, label, table, badge
 - Use shadcn theme tokens (`bg-background`, `text-destructive`, etc.) instead of raw Tailwind colors
 - Forms use `react-hook-form` + `zod` + shadcn `Input`/`Label`/`Button` with `aria-invalid` for error states
 
@@ -89,6 +89,17 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - Seed agent credentials: `agent@example.com` / `password123`
 - Admin-only pages (e.g. `/users`) use `AdminRoute` guard; navbar links conditionally render by role
 - Rate limiting (`express-rate-limit`) is enabled only in production (`NODE_ENV=production`)
+
+## Features
+
+### User Management (Admin-only)
+- **Backend**: `GET /api/users` at `backend/src/routes/users.ts` — paginated user list (`?page=1&limit=10`), protected by `requireAuth` + `requireAdmin`
+- **Frontend**: `frontend/src/pages/UsersPage.tsx` — paginated table (Name, Email, Role, Status, Joined) using TanStack Query
+- Route `/users` is guarded by `AdminRoute`; navbar "Users" link renders only for admins
+- Response shape follows `PaginatedResponse<User>` from `frontend/src/types/index.ts`
+
+### Layout
+- `AppLayout` (`frontend/src/components/AppLayout.tsx`) wraps all authenticated pages with `Navbar` + a `<main>` container matching the navbar's `max-w-7xl` responsive padding
 
 ## E2E Testing — Playwright
 
