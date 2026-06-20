@@ -38,6 +38,10 @@ bun run db:migrate     # Run Prisma migrations
 bun run db:seed        # Seed admin + agent accounts + KB articles
 bun run db:studio      # Open Prisma Studio
 
+# Component tests (run from root or /frontend)
+bun run test               # Run Vitest component tests
+bun run test:watch          # Vitest watch mode (from /frontend)
+
 # E2E testing (run from root)
 bun run test:e2e       # Run Playwright E2E tests
 bun run test:e2e:ui    # Open Playwright UI mode
@@ -100,6 +104,20 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 
 ### Layout
 - `AppLayout` (`frontend/src/components/AppLayout.tsx`) wraps all authenticated pages with `Navbar` + a `<main>` container matching the navbar's `max-w-7xl` responsive padding
+
+## Component Testing — Vitest + React Testing Library
+
+- **Stack**: Vitest 4 + React Testing Library + happy-dom
+- **Config**: Vitest is configured in `frontend/vite.config.ts` (`test` block), setup file at `frontend/src/test/setup.ts`
+- **Test files**: Co-located with components/pages as `*.test.tsx` (e.g. `UsersPage.test.tsx`)
+- **Render helper**: Use `renderWithQuery()` from `@/test/render` — wraps components in `QueryClientProvider` with retry disabled
+- **API mocking**: Mock `@/services/api` with `vi.mock()` and `vi.mocked(api)` to control Axios responses
+- **Run tests**: `bun run test` (from root or `/frontend`), `bun run test:watch` (from `/frontend`) for watch mode
+- **Conventions**:
+  - Test loading/skeleton states, success rendering, error states, and user interactions
+  - Use `screen.findByText()` for async queries after API resolution
+  - Use `within(row)` for scoping assertions to specific table rows
+  - Call `vi.clearAllMocks()` in `afterEach`
 
 ## E2E Testing — Playwright
 

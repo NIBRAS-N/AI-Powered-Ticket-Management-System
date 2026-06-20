@@ -1,0 +1,330 @@
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
+import { renderWithQuery } from "@/test/render";
+import UsersPage from "./UsersPage";
+import type { PaginatedResponse, User } from "@/types";
+
+vi.mock("@/services/api", () => {
+  return {
+    default: {
+      get: vi.fn(),
+    },
+  };
+});
+
+import api from "@/services/api";
+const mockApi = vi.mocked(api);
+
+function createUser(overrides: Partial<User> = {}): User {
+  return {
+    id: "user-1",
+    name: "Alice Admin",
+    email: "alice@example.com",
+    role: "ADMIN",
+    isActive: true,
+    createdAt: "2025-01-15T10:00:00Z",
+    updatedAt: "2025-01-15T10:00:00Z",
+    ...overrides,
+  };
+}
+
+function createPaginatedResponse(
+  users: User[],
+  overrides: Partial<PaginatedResponse<User>> = {},
+): PaginatedResponse<User> {
+  return {
+    data: users,
+    total: users.length,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+    ...overrides,
+  };
+}
+
+function mockUsersResponse(response: PaginatedResponse<User>) {
+  mockApi.get.mockResolvedValue({ data: response });
+}
+
+function mockUsersError() {
+  mockApi.get.mockRejectedValue(new Error("Network error"));
+}
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("UsersPage", () => {
+  it("shows loading skeletons while fetching", () => {
+    mockApi.get.mockReturnValue(new Promise(() => {}));
+    renderWithQuery(<UsersPage />);
+
+    expect(screen.getByText("Users")).toBeInTheDocument();
+    expect(
+      screen.getByText("Manage system users and roles."),
+    ).toBeInTheDocument();
+
+    const rows = screen.getAllByRole("row");
+    // 1 header row + 5 skeleton rows
+    expect(rows).toHaveLength(6);
+  });
+
+  it("renders user data after loading", async () => {
+    const users = [
+      createUser({ id: "1", name: "Alice Admin", email: "alice@example.com", role: "ADMIN", isActive: true }),
+      createUser({ id: "2", name: "Bob Agent", email: "bob@example.com", role: "AGENT", isActive: true }),
+      createUser({ id: "3", name: "Carol Inactive", email: "carol@example.com", role: "AGENT", isActive: false }),
+    ];
+    mockUsersResponse(createPaginatedResponse(users, { total: 3 }));
+
+    renderWithQuery(<UsersPage />);
+
+    expect(await screen.findByText("Alice Admin")).toBeInTheDocument();
+    expect(screen.getByText("alice@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Bob Agent")).toBeInTheDocument();
+    expect(screen.getByText("bob@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Carol Inactive")).toBeInTheDocument();
+
+    expect(screen.getByText("3 users total")).toBeInTheDocument();
+  });
+
+  it("displays correct role badges", async () => {
+    const users = [
+      createUser({ id: "1", name: "Admin User", role: "ADMIN" }),
+      createUser({ id: "2", name: "Agent User", role: "AGENT" }),
+    ];
+    mockUsersResponse(createPaginatedResponse(users));
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Admin User");
+
+    const adminRow = screen.getByText("Admin User").closest("tr")!;
+    expect(within(adminRow).getByText("ADMIN")).toBeInTheDocument();
+
+    const agentRow = screen.getByText("Agent User").closest("tr")!;
+    expect(within(agentRow).getByText("AGENT")).toBeInTheDocument();
+  });
+
+  it("displays correct active/inactive status badges", async () => {
+    const users = [
+      createUser({ id: "1", name: "Active User", isActive: true }),
+      createUser({ id: "2", name: "Inactive User", isActive: false }),
+    ];
+    mockUsersResponse(createPaginatedResponse(users));
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Active User");
+
+    const activeRow = screen.getByText("Active User").closest("tr")!;
+    expect(within(activeRow).getByText("Active")).toBeInTheDocument();
+
+    const inactiveRow = screen.getByText("Inactive User").closest("tr")!;
+    expect(within(inactiveRow).getByText("Inactive")).toBeInTheDocument();
+  });
+
+  it("shows singular 'user' for count of 1", async () => {
+    const users = [createUser()];
+    mockUsersResponse(createPaginatedResponse(users, { total: 1 }));
+
+    renderWithQuery(<UsersPage />);
+
+    expect(await screen.findByText("1 user total")).toBeInTheDocument();
+  });
+
+  it("shows error message when API call fails", async () => {
+    mockUsersError();
+
+    renderWithQuery(<UsersPage />);
+
+    expect(
+      await screen.findByText("Failed to load users. Please try again."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders table headers correctly", async () => {
+    mockUsersResponse(createPaginatedResponse([createUser()]));
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Alice Admin");
+
+    expect(screen.getByText("Name")).toBeInTheDocument();
+    expect(screen.getByText("Email")).toBeInTheDocument();
+    expect(screen.getByText("Role")).toBeInTheDocument();
+    expect(screen.getByText("Status")).toBeInTheDocument();
+    expect(screen.getByText("Joined")).toBeInTheDocument();
+  });
+
+  it("formats the joined date", async () => {
+    const users = [createUser({ createdAt: "2025-01-15T10:00:00Z" })];
+    mockUsersResponse(createPaginatedResponse(users));
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Alice Admin");
+    const row = screen.getByText("Alice Admin").closest("tr")!;
+    const cells = within(row).getAllByRole("cell");
+    // Last cell is the date - verify it's a formatted date string (not raw ISO)
+    expect(cells[4].textContent).not.toContain("T10:00:00Z");
+    expect(cells[4].textContent).toMatch(/\d{1,2}\/\d{1,2}\/\d{4}/);
+  });
+
+  describe("pagination", () => {
+    it("hides pagination when there is only one page", async () => {
+      mockUsersResponse(
+        createPaginatedResponse([createUser()], { totalPages: 1, page: 1 }),
+      );
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+
+      expect(screen.queryByText("Previous")).not.toBeInTheDocument();
+      expect(screen.queryByText("Next")).not.toBeInTheDocument();
+    });
+
+    it("shows pagination controls when there are multiple pages", async () => {
+      mockUsersResponse(
+        createPaginatedResponse([createUser()], {
+          totalPages: 3,
+          page: 1,
+          total: 25,
+        }),
+      );
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+
+      expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /previous/i })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /next/i }),
+      ).not.toBeDisabled();
+    });
+
+    it("navigates to the next page", async () => {
+      const user = userEvent.setup();
+
+      mockUsersResponse(
+        createPaginatedResponse([createUser()], {
+          totalPages: 3,
+          page: 1,
+          total: 25,
+        }),
+      );
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+
+      mockApi.get.mockClear();
+      mockUsersResponse(
+        createPaginatedResponse(
+          [createUser({ id: "2", name: "Page2 User", email: "page2@example.com" })],
+          { totalPages: 3, page: 2, total: 25 },
+        ),
+      );
+
+      await user.click(screen.getByRole("button", { name: /next/i }));
+
+      expect(mockApi.get).toHaveBeenCalledWith("/users", {
+        params: { page: 2, limit: 10 },
+      });
+
+      expect(await screen.findByText("Page2 User")).toBeInTheDocument();
+      expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    });
+
+    it("navigates to the previous page", async () => {
+      const user = userEvent.setup();
+
+      // Start on page 2
+      mockUsersResponse(
+        createPaginatedResponse(
+          [createUser({ name: "Page2 User" })],
+          { totalPages: 3, page: 2, total: 25 },
+        ),
+      );
+
+      renderWithQuery(<UsersPage />);
+
+      // The component always starts at page 1 internally, so we need to click next first
+      await screen.findByText("Page2 User");
+
+      // Since state starts at page=1, the API was called with page=1.
+      // We need to navigate forward first, then back.
+      // Let's re-approach: render, go to page 2, then go back to page 1.
+      mockApi.get.mockClear();
+      mockUsersResponse(
+        createPaginatedResponse(
+          [createUser({ name: "Page2 User" })],
+          { totalPages: 3, page: 2, total: 25 },
+        ),
+      );
+
+      await user.click(screen.getByRole("button", { name: /next/i }));
+      await screen.findByText("Page 2 of 3");
+
+      // Now go back
+      mockApi.get.mockClear();
+      mockUsersResponse(
+        createPaginatedResponse(
+          [createUser({ name: "Page1 User" })],
+          { totalPages: 3, page: 1, total: 25 },
+        ),
+      );
+
+      await user.click(screen.getByRole("button", { name: /previous/i }));
+
+      expect(mockApi.get).toHaveBeenCalledWith("/users", {
+        params: { page: 1, limit: 10 },
+      });
+
+      expect(await screen.findByText("Page1 User")).toBeInTheDocument();
+    });
+
+    it("disables Next button on the last page", async () => {
+      mockUsersResponse(
+        createPaginatedResponse([createUser()], {
+          totalPages: 2,
+          page: 2,
+          total: 15,
+        }),
+      );
+
+      renderWithQuery(<UsersPage />);
+
+      // Component starts at page=1, navigate to page 2
+      await screen.findByText("Alice Admin");
+
+      const user = userEvent.setup();
+      mockUsersResponse(
+        createPaginatedResponse([createUser()], {
+          totalPages: 2,
+          page: 2,
+          total: 15,
+        }),
+      );
+
+      await user.click(screen.getByRole("button", { name: /next/i }));
+      await screen.findByText("Page 2 of 2");
+
+      expect(screen.getByRole("button", { name: /next/i })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /previous/i }),
+      ).not.toBeDisabled();
+    });
+  });
+
+  it("calls the API with correct initial params", () => {
+    mockApi.get.mockReturnValue(new Promise(() => {}));
+    renderWithQuery(<UsersPage />);
+
+    expect(mockApi.get).toHaveBeenCalledWith("/users", {
+      params: { page: 1, limit: 10 },
+    });
+  });
+});

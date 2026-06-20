@@ -8,6 +8,7 @@
     "dev:frontend": "bun run --filter frontend dev",
     "build": "bun run --filter backend build && bun run --filter frontend build",
     "lint": "bun run --filter '*' lint",
+    "test": "bun run --filter frontend test",
     "test:e2e": "bunx playwright test",
     "test:e2e:ui": "bunx playwright test --ui",
     "test:e2e:headed": "bunx playwright test --headed",
