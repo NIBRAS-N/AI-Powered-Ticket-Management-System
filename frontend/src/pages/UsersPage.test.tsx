@@ -10,6 +10,8 @@ vi.mock("@/services/api", () => {
     default: {
       get: vi.fn(),
       post: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
     },
   };
 });
@@ -435,6 +437,199 @@ describe("UsersPage", () => {
       ).toBeInTheDocument();
 
       expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+  });
+
+  describe("edit user", () => {
+    it("shows edit button for each user row", async () => {
+      const users = [
+        createUser({ id: "1", name: "Alice Admin" }),
+        createUser({ id: "2", name: "Bob Agent" }),
+      ];
+      mockUsersResponse(createPaginatedResponse(users));
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+
+      expect(screen.getByRole("button", { name: /edit alice admin/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /edit bob agent/i })).toBeInTheDocument();
+    });
+
+    it("opens edit dialog populated with user data", async () => {
+      const user = userEvent.setup();
+      const users = [createUser({ id: "1", name: "Alice Admin", email: "alice@example.com" })];
+      mockUsersResponse(createPaginatedResponse(users));
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /edit alice admin/i }));
+
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByText("Edit User")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Alice Admin")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("alice@example.com")).toBeInTheDocument();
+    });
+
+    it("submits edited data and closes dialog on success", async () => {
+      const user = userEvent.setup();
+      const users = [createUser({ id: "1", name: "Alice Admin", email: "alice@example.com" })];
+      mockUsersResponse(createPaginatedResponse(users));
+      mockApi.patch.mockResolvedValue({
+        data: createUser({ id: "1", name: "Alice Updated", email: "alice@example.com" }),
+      });
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /edit alice admin/i }));
+
+      const nameInput = screen.getByDisplayValue("Alice Admin");
+      await user.clear(nameInput);
+      await user.type(nameInput, "Alice Updated");
+
+      await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+      await vi.waitFor(() => {
+        expect(mockApi.patch).toHaveBeenCalledWith("/users/1", {
+          name: "Alice Updated",
+          email: "alice@example.com",
+        });
+      });
+
+      await vi.waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+    });
+
+    it("sends password only when provided", async () => {
+      const user = userEvent.setup();
+      const users = [createUser({ id: "1", name: "Alice Admin", email: "alice@example.com" })];
+      mockUsersResponse(createPaginatedResponse(users));
+      mockApi.patch.mockResolvedValue({
+        data: createUser({ id: "1", name: "Alice Admin", email: "alice@example.com" }),
+      });
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /edit alice admin/i }));
+
+      await user.type(screen.getByLabelText("Password"), "newpass123");
+      await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+      await vi.waitFor(() => {
+        expect(mockApi.patch).toHaveBeenCalledWith("/users/1", {
+          name: "Alice Admin",
+          email: "alice@example.com",
+          password: "newpass123",
+        });
+      });
+    });
+
+    it("shows server error on duplicate email", async () => {
+      const user = userEvent.setup();
+      const users = [createUser({ id: "1", name: "Alice Admin", email: "alice@example.com" })];
+      mockUsersResponse(createPaginatedResponse(users));
+      mockApi.patch.mockRejectedValue({
+        response: {
+          data: { error: "A user with this email already exists" },
+        },
+      });
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /edit alice admin/i }));
+
+      const emailInput = screen.getByDisplayValue("alice@example.com");
+      await user.clear(emailInput);
+      await user.type(emailInput, "taken@example.com");
+
+      await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+      expect(
+        await screen.findByText("A user with this email already exists"),
+      ).toBeInTheDocument();
+
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+  });
+
+  describe("delete user", () => {
+    it("shows delete button for AGENT users but not ADMIN users", async () => {
+      const users = [
+        createUser({ id: "1", name: "Admin User", role: "ADMIN" }),
+        createUser({ id: "2", name: "Agent User", role: "AGENT" }),
+      ];
+      mockUsersResponse(createPaginatedResponse(users));
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Admin User");
+
+      expect(screen.queryByRole("button", { name: /delete admin user/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /delete agent user/i })).toBeInTheDocument();
+    });
+
+    it("opens confirmation dialog when delete button is clicked", async () => {
+      const user = userEvent.setup();
+      const users = [createUser({ id: "2", name: "Bob Agent", role: "AGENT" })];
+      mockUsersResponse(createPaginatedResponse(users));
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Bob Agent");
+      await user.click(screen.getByRole("button", { name: /delete bob agent/i }));
+
+      const dialog = screen.getByRole("alertdialog");
+      expect(dialog).toBeInTheDocument();
+      expect(within(dialog).getByText("Delete User")).toBeInTheDocument();
+      expect(within(dialog).getByText(/bob agent/i)).toBeInTheDocument();
+    });
+
+    it("calls api.delete and closes dialog on confirm", async () => {
+      const user = userEvent.setup();
+      const users = [createUser({ id: "2", name: "Bob Agent", role: "AGENT" })];
+      mockUsersResponse(createPaginatedResponse(users));
+      mockApi.delete.mockResolvedValue({
+        data: createUser({ id: "2", name: "Bob Agent", role: "AGENT", isActive: false }),
+      });
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Bob Agent");
+      await user.click(screen.getByRole("button", { name: /delete bob agent/i }));
+      await user.click(screen.getByRole("button", { name: /^delete$/i }));
+
+      await vi.waitFor(() => {
+        expect(mockApi.delete).toHaveBeenCalledWith("/users/2");
+      });
+
+      await vi.waitFor(() => {
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      });
+    });
+
+    it("shows server error in dialog on failure", async () => {
+      const user = userEvent.setup();
+      const users = [createUser({ id: "2", name: "Bob Agent", role: "AGENT" })];
+      mockUsersResponse(createPaginatedResponse(users));
+      mockApi.delete.mockRejectedValue({
+        response: {
+          data: { error: "Admin users cannot be deleted" },
+        },
+      });
+
+      renderWithQuery(<UsersPage />);
+
+      await screen.findByText("Bob Agent");
+      await user.click(screen.getByRole("button", { name: /delete bob agent/i }));
+      await user.click(screen.getByRole("button", { name: /^delete$/i }));
+
+      const dialog = screen.getByRole("alertdialog");
+      expect(
+        await within(dialog).findByText("Admin users cannot be deleted"),
+      ).toBeInTheDocument();
+
+      expect(dialog).toBeInTheDocument();
     });
   });
 });

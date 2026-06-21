@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Trash2, UserPlus } from "lucide-react";
 import api from "@/services/api";
 import type { User, PaginatedResponse } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import CreateUserDialog from "@/components/CreateUserDialog";
+import UserFormDialog from "@/components/UserFormDialog";
+import DeleteUserDialog from "@/components/DeleteUserDialog";
 import {
   Card,
   CardContent,
@@ -35,7 +36,8 @@ function fetchUsers(page: number) {
 
 export default function UsersPage() {
   const [page, setPage] = useState(1);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [dialogUser, setDialogUser] = useState<User | "new" | null>(null);
+  const [deleteUser, setDeleteUser] = useState<User | null>(null);
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["users", page],
@@ -49,7 +51,7 @@ export default function UsersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Users</h1>
           <p className="text-muted-foreground">Manage system users and roles.</p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
+        <Button onClick={() => setDialogUser("new")}>
           <UserPlus className="size-4" />
           Create User
         </Button>
@@ -73,6 +75,7 @@ export default function UsersPage() {
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Joined</TableHead>
+                    <TableHead className="w-[60px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -83,6 +86,7 @@ export default function UsersPage() {
                       <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -103,6 +107,7 @@ export default function UsersPage() {
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Joined</TableHead>
+                    <TableHead className="w-[60px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -122,6 +127,28 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {new Date(user.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDialogUser(user)}
+                          >
+                            <Pencil className="size-4" />
+                            <span className="sr-only">Edit {user.name}</span>
+                          </Button>
+                          {user.role !== "ADMIN" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeleteUser(user)}
+                            >
+                              <Trash2 className="size-4" />
+                              <span className="sr-only">Delete {user.name}</span>
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -161,10 +188,8 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      <CreateUserDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-      />
+      <UserFormDialog user={dialogUser} onClose={() => setDialogUser(null)} />
+      <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} />
     </div>
   );
 }

@@ -77,7 +77,7 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - **Utility**: `cn()` helper at `frontend/src/lib/utils.ts` (clsx + tailwind-merge)
 - **Config**: `frontend/components.json` (rsc: false, cssVariables: true, lucide icons)
 - **Add components**: `bunx shadcn@latest add <component> --yes` from `/frontend`
-- **Installed**: button, card, dialog, input, label, table, badge, skeleton
+- **Installed**: alert-dialog, button, card, dialog, input, label, table, badge, skeleton
 - Use shadcn theme tokens (`bg-background`, `text-destructive`, etc.) instead of raw Tailwind colors
 - Forms use `react-hook-form` + `zod` + shadcn `Input`/`Label`/`Button` with `aria-invalid` for error states
 
@@ -103,8 +103,12 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - **Backend**: `backend/src/routes/users.ts`, protected by `requireAuth` + `requireAdmin`
   - `GET /api/users` — paginated user list (`?page=1&limit=10`)
   - `POST /api/users` — create new user (`{ name, email, password }`, validated with zod), uses `adminAuth.api.signUpEmail()` for password hashing
+  - `PATCH /api/users/:id` — update user (`{ name, email, password? }`), password optional (only updated when provided), uses `hashPassword` from `better-auth/crypto`
+  - `DELETE /api/users/:id` — soft-delete (sets `isActive = false`, deletes all sessions); returns 403 for admin users
 - **Frontend**: `frontend/src/pages/UsersPage.tsx` — paginated table (Name, Email, Role, Status, Joined) using TanStack Query
-- **Create User**: `frontend/src/components/CreateUserDialog.tsx` — modal form using `useMutation` + `api.post("/users", data)`, invalidates `["users"]` query on success
+- **User Form Dialog**: `frontend/src/components/UserFormDialog.tsx` — unified create/edit modal (`user="new"` for create, `user={User}` for edit), password required on create, optional on edit
+- **Delete User**: `frontend/src/components/DeleteUserDialog.tsx` — AlertDialog confirmation, hidden for admin rows, soft-deletes via `api.delete`
+- GET endpoint filters by `isActive: true` — soft-deleted users are hidden from the list
 - Route `/users` is guarded by `AdminRoute`; navbar "Users" link renders only for admins
 - Response shape follows `PaginatedResponse<User>` from `frontend/src/types/index.ts`
 

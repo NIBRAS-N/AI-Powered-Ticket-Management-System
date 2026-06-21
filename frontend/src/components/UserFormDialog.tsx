@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { AxiosError } from "axios";
 import api from "@/services/api";
+import type { User } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,44 +19,65 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const createUserSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters"),
-  email: z.string().email("Please enter a valid email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
-
-type CreateUserForm = z.infer<typeof createUserSchema>;
-
-interface CreateUserDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+function buildSchema(isEditing: boolean) {
+  return z.object({
+    name: z.string().min(3, "Name must be at least 3 characters"),
+    email: z.string().email("Please enter a valid email"),
+    password: isEditing
+      ? z.string().min(8, "Password must be at least 8 characters").or(z.literal(""))
+      : z.string().min(8, "Password must be at least 8 characters"),
+  });
 }
 
-export default function CreateUserDialog({
-  open,
-  onOpenChange,
-}: CreateUserDialogProps) {
+type UserFormData = z.infer<ReturnType<typeof buildSchema>>;
+
+interface UserFormDialogProps {
+  user: User | "new" | null;
+  onClose: () => void;
+}
+
+export default function UserFormDialog({ user, onClose }: UserFormDialogProps) {
+  const isEditing = user !== null && user !== "new";
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const schema = useMemo(() => buildSchema(isEditing), [isEditing]);
 
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<CreateUserForm>({
-    resolver: zodResolver(createUserSchema),
+  } = useForm<UserFormData>({
+    resolver: zodResolver(schema),
   });
 
+  useEffect(() => {
+    if (user === "new") {
+      reset({ name: "", email: "", password: "" });
+      setServerError(null);
+    } else if (user) {
+      reset({ name: user.name, email: user.email, password: "" });
+      setServerError(null);
+    }
+  }, [user, reset]);
+
   const mutation = useMutation({
-    mutationFn: (data: CreateUserForm) => api.post("/users", data),
+    mutationFn: (data: UserFormData) =>
+      isEditing
+        ? api.patch(`/users/${user.id}`, {
+            name: data.name,
+            email: data.email,
+            ...(data.password ? { password: data.password } : {}),
+          })
+        : api.post("/users", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       handleClose();
     },
     onError: (error: AxiosError<{ error: string }>) => {
       setServerError(
-        error.response?.data?.error ?? "Failed to create user. Please try again."
+        error.response?.data?.error ?? `Failed to ${isEditing ? "update" : "create"} user. Please try again.`
       );
     },
   });
@@ -63,24 +85,18 @@ export default function CreateUserDialog({
   function handleClose() {
     reset();
     setServerError(null);
-    onOpenChange(false);
-  }
-
-  function handleOpenChange(value: boolean) {
-    if (!value) {
-      handleClose();
-    } else {
-      onOpenChange(true);
-    }
+    onClose();
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={user !== null} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New User</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit User" : "Create New User"}</DialogTitle>
           <DialogDescription>
-            Add a new agent to the system.
+            {isEditing
+              ? "Update user details. Leave password blank to keep it unchanged."
+              : "Add a new agent to the system."}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -88,9 +104,9 @@ export default function CreateUserDialog({
           className="space-y-4"
         >
           <div className="space-y-2">
-            <Label htmlFor="create-name">Name</Label>
+            <Label htmlFor="user-name">Name</Label>
             <Input
-              id="create-name"
+              id="user-name"
               placeholder="Full name"
               aria-invalid={errors.name ? true : undefined}
               {...register("name")}
@@ -103,9 +119,9 @@ export default function CreateUserDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-email">Email</Label>
+            <Label htmlFor="user-email">Email</Label>
             <Input
-              id="create-email"
+              id="user-email"
               type="email"
               placeholder="user@example.com"
               aria-invalid={errors.email ? true : undefined}
@@ -119,10 +135,11 @@ export default function CreateUserDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-password">Password</Label>
+            <Label htmlFor="user-password">Password</Label>
             <Input
-              id="create-password"
+              id="user-password"
               type="password"
+              placeholder={isEditing ? "Leave blank to keep unchanged" : undefined}
               aria-invalid={errors.password ? true : undefined}
               {...register("password")}
             />
@@ -138,16 +155,14 @@ export default function CreateUserDialog({
           )}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-            >
+            <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending && <Loader2 className="animate-spin" />}
-              {mutation.isPending ? "Creating..." : "Create User"}
+              {mutation.isPending
+                ? isEditing ? "Saving..." : "Creating..."
+                : isEditing ? "Save Changes" : "Create User"}
             </Button>
           </DialogFooter>
         </form>
