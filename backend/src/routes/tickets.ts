@@ -17,6 +17,15 @@ const ticketQuerySchema = z.object({
 
 const router = Router();
 
+router.get("/agents", async (_req, res) => {
+  const agents = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: "asc" },
+  });
+  res.json(agents);
+});
+
 router.get("/", validate(ticketQuerySchema, { source: "query" }), async (req, res) => {
   const { page, limit, status, category, sortBy, sortOrder, search } = req.body;
   const skip = (page - 1) * limit;
@@ -54,6 +63,64 @@ router.get("/", validate(ticketQuerySchema, { source: "query" }), async (req, re
     limit,
     totalPages: Math.ceil(total / limit),
   });
+});
+
+router.patch("/:id/assign", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const { assigneeId } = req.body as { assigneeId: string | null };
+
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  if (assigneeId) {
+    const agent = await prisma.user.findUnique({ where: { id: assigneeId } });
+    if (!agent || !agent.isActive) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+  }
+
+  const updated = await prisma.ticket.update({
+    where: { id },
+    data: { assigneeId: assigneeId ?? null },
+    include: {
+      assignee: { select: { id: true, name: true, email: true } },
+      messages: { orderBy: { createdAt: "asc" } },
+    },
+  });
+
+  res.json(updated);
+});
+
+router.get("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    include: {
+      assignee: { select: { id: true, name: true, email: true } },
+      messages: { orderBy: { createdAt: "asc" } },
+    },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  res.json(ticket);
 });
 
 export default router;

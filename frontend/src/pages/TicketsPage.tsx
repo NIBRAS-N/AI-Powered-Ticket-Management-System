@@ -7,6 +7,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
+import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
 import api from "@/services/api";
 import type { Ticket, TicketStatus, TicketCategory, PaginatedResponse } from "@/types";
@@ -64,7 +65,12 @@ const columns: ColumnDef<Ticket>[] = [
     accessorKey: "subject",
     header: "Subject",
     cell: ({ row }) => (
-      <span className="font-medium max-w-[300px] truncate block">{row.original.subject}</span>
+      <Link
+        to={`/tickets/${row.original.id}`}
+        className="font-medium max-w-[300px] truncate block text-primary hover:underline"
+      >
+        {row.original.subject}
+      </Link>
     ),
   },
   {
