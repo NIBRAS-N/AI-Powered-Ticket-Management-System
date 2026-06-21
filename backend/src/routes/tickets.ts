@@ -3,17 +3,21 @@ import { z } from "zod";
 import prisma from "../utils/prisma.js";
 import { validate } from "../middleware/validate.js";
 
+const sortableFields = ["id", "subject", "senderName", "status", "category", "createdAt"] as const;
+
 const ticketQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
   status: z.enum(["OPEN", "RESOLVED", "CLOSED"]).optional(),
   category: z.enum(["GENERAL", "TECHNICAL", "REFUND"]).optional(),
+  sortBy: z.enum(sortableFields).default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
 const router = Router();
 
 router.get("/", validate(ticketQuerySchema, { source: "query" }), async (req, res) => {
-  const { page, limit, status, category } = req.body;
+  const { page, limit, status, category, sortBy, sortOrder } = req.body;
   const skip = (page - 1) * limit;
 
   const where: Record<string, unknown> = {};
@@ -28,7 +32,7 @@ router.get("/", validate(ticketQuerySchema, { source: "query" }), async (req, re
           select: { id: true, name: true, email: true },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { [sortBy]: sortOrder },
       skip,
       take: limit,
     }),

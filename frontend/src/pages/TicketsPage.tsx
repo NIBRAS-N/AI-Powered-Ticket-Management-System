@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
+import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import api from "@/services/api";
 import type { Ticket, TicketStatus, TicketCategory, PaginatedResponse } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -43,12 +50,97 @@ function categoryBadgeVariant(category: TicketCategory) {
   }
 }
 
-function fetchTickets(page: number, status?: TicketStatus, category?: TicketCategory) {
+const columns: ColumnDef<Ticket>[] = [
+  {
+    accessorKey: "id",
+    header: "ID",
+    cell: ({ row }) => (
+      <span className="font-mono text-muted-foreground">#{row.original.id}</span>
+    ),
+    size: 60,
+  },
+  {
+    accessorKey: "subject",
+    header: "Subject",
+    cell: ({ row }) => (
+      <span className="font-medium max-w-[300px] truncate block">{row.original.subject}</span>
+    ),
+  },
+  {
+    accessorKey: "senderName",
+    header: "Sender",
+    cell: ({ row }) => (
+      <div>
+        <span>{row.original.senderName}</span>
+        <span className="block text-xs text-muted-foreground">{row.original.senderEmail}</span>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => (
+      <Badge variant={statusBadgeVariant(row.original.status)}>
+        {row.original.status}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: "category",
+    header: "Category",
+    cell: ({ row }) =>
+      row.original.category ? (
+        <Badge variant={categoryBadgeVariant(row.original.category)}>
+          {row.original.category}
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+  },
+  {
+    id: "assignee",
+    header: "Assignee",
+    enableSorting: false,
+    cell: ({ row }) =>
+      row.original.assignee ? (
+        row.original.assignee.name
+      ) : (
+        <span className="text-muted-foreground">Unassigned</span>
+      ),
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Created",
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">
+        {new Date(row.original.createdAt).toLocaleDateString()}
+      </span>
+    ),
+  },
+];
+
+function SortIcon({ isSorted }: { isSorted: false | "asc" | "desc" }) {
+  if (isSorted === "asc") return <ArrowUp className="size-4" />;
+  if (isSorted === "desc") return <ArrowDown className="size-4" />;
+  return <ArrowUpDown className="size-4 text-muted-foreground/50" />;
+}
+
+function fetchTickets(
+  page: number,
+  sorting: SortingState,
+  status?: TicketStatus,
+  category?: TicketCategory,
+) {
+  const sortBy = sorting[0]?.id ?? "createdAt";
+  const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
+
   return api
     .get<PaginatedResponse<Ticket>>("/tickets", {
       params: {
         page,
         limit: PAGE_SIZE,
+        sortBy,
+        sortOrder,
         ...(status && { status }),
         ...(category && { category }),
       },
@@ -60,10 +152,23 @@ export default function TicketsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<TicketCategory | undefined>();
+  const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ["tickets", page, statusFilter, categoryFilter],
-    queryFn: () => fetchTickets(page, statusFilter, categoryFilter),
+    queryKey: ["tickets", page, sorting, statusFilter, categoryFilter],
+    queryFn: () => fetchTickets(page, sorting, statusFilter, categoryFilter),
+  });
+
+  const table = useReactTable({
+    data: data?.data ?? [],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    manualSorting: true,
+    state: { sorting },
+    onSortingChange: (updater) => {
+      setSorting(updater);
+      setPage(1);
+    },
   });
 
   const handleStatusFilter = (status?: TicketStatus) => {
@@ -75,20 +180,6 @@ export default function TicketsPage() {
     setCategoryFilter(category);
     setPage(1);
   };
-
-  const tableHeaders = (
-    <TableHeader>
-      <TableRow>
-        <TableHead className="w-[60px]">ID</TableHead>
-        <TableHead>Subject</TableHead>
-        <TableHead>Sender</TableHead>
-        <TableHead>Status</TableHead>
-        <TableHead>Category</TableHead>
-        <TableHead>Assignee</TableHead>
-        <TableHead>Created</TableHead>
-      </TableRow>
-    </TableHeader>
-  );
 
   return (
     <div className="space-y-6">
@@ -155,7 +246,13 @@ export default function TicketsPage() {
           {isPending ? (
             <div className="overflow-x-auto -mx-6">
               <Table>
-                {tableHeaders}
+                <TableHeader>
+                  <TableRow>
+                    {columns.map((col, i) => (
+                      <TableHead key={i}>{typeof col.header === "string" ? col.header : ""}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
@@ -183,42 +280,34 @@ export default function TicketsPage() {
             <>
               <div className="overflow-x-auto -mx-6">
                 <Table>
-                  {tableHeaders}
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead
+                            key={header.id}
+                            className={header.column.getCanSort() ? "cursor-pointer select-none" : ""}
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            <div className="flex items-center gap-1">
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              {header.column.getCanSort() && (
+                                <SortIcon isSorted={header.column.getIsSorted()} />
+                              )}
+                            </div>
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
                   <TableBody>
-                    {data.data.map((ticket) => (
-                      <TableRow key={ticket.id}>
-                        <TableCell className="font-mono text-muted-foreground">#{ticket.id}</TableCell>
-                        <TableCell className="font-medium max-w-[300px] truncate">{ticket.subject}</TableCell>
-                        <TableCell>
-                          <div>
-                            <span>{ticket.senderName}</span>
-                            <span className="block text-xs text-muted-foreground">{ticket.senderEmail}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusBadgeVariant(ticket.status)}>
-                            {ticket.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {ticket.category ? (
-                            <Badge variant={categoryBadgeVariant(ticket.category)}>
-                              {ticket.category}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {ticket.assignee ? (
-                            ticket.assignee.name
-                          ) : (
-                            <span className="text-muted-foreground">Unassigned</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {new Date(ticket.createdAt).toLocaleDateString()}
-                        </TableCell>
+                    {table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>
