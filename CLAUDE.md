@@ -129,6 +129,27 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
   - Use `within(row)` for scoping assertions to specific table rows
   - Call `vi.clearAllMocks()` in `afterEach`
 
+### Ticket & Message Models
+- **Database**: `Ticket` and `Message` models in `backend/prisma/schema.prisma`
+  - Ticket: auto-increment `id`, `subject`, `description`, `senderEmail`, `senderName`, `status` (OPEN/RESOLVED/CLOSED), `category` (GENERAL/TECHNICAL/REFUND, nullable), optional `assignee` (User relation), `messages` relation
+  - Message: auto-increment `id`, belongs to Ticket (cascade delete), `senderType` (STUDENT/AGENT), `senderName`, `content`
+  - Enums: `TicketStatus`, `TicketCategory`, `SenderType`
+- **Frontend types**: `Ticket`, `Message`, `TicketStatus`, `TicketCategory`, `SenderType`, `KnowledgeBaseArticle`, `DashboardStats` at `frontend/src/types/index.ts`
+
+### Inbound Email Webhook
+- **Route**: `POST /api/webhooks/inbound-email` (`backend/src/routes/webhooks.ts`) — no auth middleware (public webhook), protected by `verifyWebhook` middleware
+- **Webhook auth**: `backend/src/middleware/verify-webhook.ts` — validates `Authorization: Basic` header against `WEBHOOK_AUTH_TOKEN` env var; skips validation if token is not configured
+- **Email parser**: `backend/src/services/email-parser.service.ts`
+  - `inboundEmailSchema` — zod schema validating SendGrid inbound parse payload (`from`, `to`, `subject`, `text`, optional `envelope`)
+  - `parseInboundEmail()` — extracts sender name/email, strips Re:/Fwd: prefixes, detects ticket references via `support+<id>@` plus-addressing or `[Ticket #<id>]` in subject
+- **Ticket service**: `backend/src/services/ticket.service.ts`
+  - `createTicketFromEmail()` — creates ticket with initial message in one Prisma call
+  - `addMessageToTicket()` — adds message to existing ticket; reopens RESOLVED tickets when student replies; rejects messages on CLOSED tickets; uses `$transaction`
+  - `findTicketById()` — simple lookup by ID
+  - `isDuplicate()` — deduplication check: matches sender + subject + body within a 5-minute window against both tickets and messages
+- **Flow**: Inbound email → validate webhook auth → parse & validate payload → check duplicate → thread onto existing ticket (if referenced and sender matches) → or create new ticket
+- **Env**: `WEBHOOK_AUTH_TOKEN` (optional) in `backend/src/config/env.ts`
+
 ## E2E Testing — Playwright
 
 E2E tests use a separate `ticket_system_test` database with isolated ports (backend 3001, frontend 5174). **Always use the `e2e-test-writer` agent to write E2E tests** — do not write Playwright tests directly. The agent has full testing instructions, patterns, and project-specific configuration (`.claude/agents/e2e-test-writer.md`).

@@ -178,6 +178,28 @@ exports.Prisma.KnowledgeBaseArticleScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.TicketScalarFieldEnum = {
+  id: 'id',
+  subject: 'subject',
+  description: 'description',
+  senderEmail: 'senderEmail',
+  senderName: 'senderName',
+  status: 'status',
+  category: 'category',
+  assigneeId: 'assigneeId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.MessageScalarFieldEnum = {
+  id: 'id',
+  ticketId: 'ticketId',
+  senderType: 'senderType',
+  senderName: 'senderName',
+  content: 'content',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -192,14 +214,31 @@ exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
 };
+exports.TicketStatus = exports.$Enums.TicketStatus = {
+  OPEN: 'OPEN',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED'
+};
 
+exports.TicketCategory = exports.$Enums.TicketCategory = {
+  GENERAL: 'GENERAL',
+  TECHNICAL: 'TECHNICAL',
+  REFUND: 'REFUND'
+};
+
+exports.SenderType = exports.$Enums.SenderType = {
+  STUDENT: 'STUDENT',
+  AGENT: 'AGENT'
+};
 
 exports.Prisma.ModelName = {
   User: 'User',
   Session: 'Session',
   Account: 'Account',
   Verification: 'Verification',
-  KnowledgeBaseArticle: 'KnowledgeBaseArticle'
+  KnowledgeBaseArticle: 'KnowledgeBaseArticle',
+  Ticket: 'Ticket',
+  Message: 'Message'
 };
 
 /**

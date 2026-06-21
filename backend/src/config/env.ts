@@ -21,4 +21,5 @@ export const env = {
       : process.env.CORS_ORIGIN || "http://localhost:5173",
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || "admin@example.com",
   ADMIN_PASSWORD: requireEnv("ADMIN_PASSWORD"),
+  WEBHOOK_AUTH_TOKEN: process.env.WEBHOOK_AUTH_TOKEN || "",
 } as const;

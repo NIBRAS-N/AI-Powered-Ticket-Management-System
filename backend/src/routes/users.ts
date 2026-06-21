@@ -6,6 +6,7 @@ import { hashPassword } from "better-auth/crypto";
 import prisma from "../utils/prisma.js";
 import { env } from "../config/env.js";
 import { Role } from "../constants/role.js";
+import { validate } from "../middleware/validate.js";
 
 const adminAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -33,14 +34,8 @@ const createUserSchema = z.object({
 
 const router = Router();
 
-router.post("/", async (req, res) => {
-  const parsed = createUserSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0].message });
-    return;
-  }
-
-  const { name, email, password } = parsed.data;
+router.post("/", validate(createUserSchema), async (req, res) => {
+  const { name, email, password } = req.body;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -62,15 +57,9 @@ router.post("/", async (req, res) => {
   });
 });
 
-router.patch("/:id", async (req, res) => {
-  const parsed = updateUserSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0].message });
-    return;
-  }
-
-  const { name, email, password } = parsed.data;
-  const { id } = req.params;
+router.patch("/:id", validate(updateUserSchema), async (req, res) => {
+  const { name, email, password } = req.body;
+  const id = req.params.id as string;
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) {
@@ -104,7 +93,7 @@ router.patch("/:id", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) {

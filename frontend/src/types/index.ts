@@ -36,13 +36,13 @@ export interface LoginCredentials {
 }
 
 export interface Ticket {
-  id: string;
+  id: number;
   subject: string;
   description: string;
   senderEmail: string;
   senderName: string;
   status: TicketStatus;
-  category: TicketCategory;
+  category: TicketCategory | null;
   assigneeId: string | null;
   assignee?: User;
   messages?: Message[];
@@ -51,8 +51,8 @@ export interface Ticket {
 }
 
 export interface Message {
-  id: string;
-  ticketId: string;
+  id: number;
+  ticketId: number;
   senderType: SenderType;
   senderName: string;
   content: string;

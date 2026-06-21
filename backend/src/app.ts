@@ -10,6 +10,7 @@ import healthRouter from "./routes/health.js";
 import { requireAuth } from "./middleware/require-auth.js";
 import { requireAdmin } from "./middleware/require-admin.js";
 import usersRouter from "./routes/users.js";
+import webhooksRouter from "./routes/webhooks.js";
 
 const app = express();
 
@@ -34,9 +35,12 @@ if (env.NODE_ENV === "production") {
     standardHeaders: true,
     legacyHeaders: false,
   });
-  app.use("/api", apiLimiter);
+  app.use("/api/health", apiLimiter);
+  app.use("/api/users", apiLimiter);
+  app.use("/api/me", apiLimiter);
 }
 
+app.use("/api/webhooks", webhooksRouter);
 app.use("/api/health", healthRouter);
 app.use("/api/users", requireAuth, requireAdmin, usersRouter);
 
