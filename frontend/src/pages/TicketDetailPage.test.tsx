@@ -112,8 +112,8 @@ describe("TicketDetailPage", () => {
 
     expect(await screen.findByText("Cannot login to dashboard")).toBeInTheDocument();
     expect(screen.getByText("#1")).toBeInTheDocument();
-    expect(screen.getByText("OPEN")).toBeInTheDocument();
-    expect(screen.getByText("TECHNICAL")).toBeInTheDocument();
+    expect(screen.getByText("Open")).toBeInTheDocument();
+    expect(screen.getByText("Technical")).toBeInTheDocument();
     expect(screen.getByText("John Doe")).toBeInTheDocument();
     expect(screen.getByText("john@example.com")).toBeInTheDocument();
   });
@@ -186,76 +186,6 @@ describe("TicketDetailPage", () => {
     expect(screen.getByText("Alice Agent")).toBeInTheDocument();
   });
 
-  it("calls assign API when selecting an agent", async () => {
-    const user = userEvent.setup();
-    mockTicketResponse(createTicket({ assigneeId: null }));
-    mockApi.patch.mockResolvedValue({
-      data: createTicket({ assigneeId: "agent-1" }),
-    });
-
-    renderPage();
-
-    await screen.findByText("Cannot login to dashboard");
-
-    const trigger = screen.getByRole("combobox");
-    await user.click(trigger);
-
-    const option = await screen.findByRole("option", { name: "Alice Agent" });
-    await user.click(option);
-
-    await vi.waitFor(() => {
-      expect(mockApi.patch).toHaveBeenCalledWith("/tickets/1/assign", {
-        assigneeId: "agent-1",
-      });
-    });
-  });
-
-  it("calls assign API with null when selecting 'Unassigned'", async () => {
-    const user = userEvent.setup();
-    mockTicketResponse(
-      createTicket({
-        assigneeId: "agent-1",
-        assignee: { id: "agent-1", name: "Alice Agent", email: "alice@example.com", role: "AGENT", isActive: true, createdAt: "", updatedAt: "" },
-      }),
-    );
-    mockApi.patch.mockResolvedValue({
-      data: createTicket({ assigneeId: null }),
-    });
-
-    renderPage();
-
-    await screen.findByText("Cannot login to dashboard");
-
-    const trigger = screen.getByRole("combobox");
-    await user.click(trigger);
-
-    const option = await screen.findByRole("option", { name: "Unassigned" });
-    await user.click(option);
-
-    await vi.waitFor(() => {
-      expect(mockApi.patch).toHaveBeenCalledWith("/tickets/1/assign", {
-        assigneeId: null,
-      });
-    });
-  });
-
-  it("shows correct status badge variants", async () => {
-    mockTicketResponse(createTicket({ status: "RESOLVED" }));
-
-    renderPage();
-
-    expect(await screen.findByText("RESOLVED")).toBeInTheDocument();
-  });
-
-  it("shows dash when category is null", async () => {
-    mockTicketResponse(createTicket({ category: null }));
-
-    renderPage();
-
-    await screen.findByText("Cannot login to dashboard");
-    expect(screen.getByText("—")).toBeInTheDocument();
-  });
-
   it("navigates back to tickets list via back button", async () => {
     const user = userEvent.setup();
     mockTicketResponse(createTicket());
@@ -281,5 +211,185 @@ describe("TicketDetailPage", () => {
 
     expect(mockApi.get).toHaveBeenCalledWith("/tickets/1");
     expect(mockApi.get).toHaveBeenCalledWith("/tickets/agents");
+  });
+
+  describe("assign ticket", () => {
+    it("calls update API when selecting an agent", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(createTicket({ assigneeId: null }));
+      mockApi.patch.mockResolvedValue({
+        data: createTicket({ assigneeId: "agent-1" }),
+      });
+
+      renderPage();
+      await screen.findByText("Cannot login to dashboard");
+
+      const comboboxes = screen.getAllByRole("combobox");
+      const assigneeSelect = comboboxes[2];
+      await user.click(assigneeSelect);
+
+      const option = await screen.findByRole("option", { name: "Alice Agent" });
+      await user.click(option);
+
+      await vi.waitFor(() => {
+        expect(mockApi.patch).toHaveBeenCalledWith("/tickets/1", {
+          assigneeId: "agent-1",
+        });
+      });
+    });
+
+    it("calls update API with null when selecting 'Unassigned'", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(
+        createTicket({
+          assigneeId: "agent-1",
+          assignee: { id: "agent-1", name: "Alice Agent", email: "alice@example.com", role: "AGENT", isActive: true, createdAt: "", updatedAt: "" },
+        }),
+      );
+      mockApi.patch.mockResolvedValue({
+        data: createTicket({ assigneeId: null }),
+      });
+
+      renderPage();
+      await screen.findByText("Cannot login to dashboard");
+
+      const comboboxes = screen.getAllByRole("combobox");
+      const assigneeSelect = comboboxes[2];
+      await user.click(assigneeSelect);
+
+      const option = await screen.findByRole("option", { name: "Unassigned" });
+      await user.click(option);
+
+      await vi.waitFor(() => {
+        expect(mockApi.patch).toHaveBeenCalledWith("/tickets/1", {
+          assigneeId: null,
+        });
+      });
+    });
+  });
+
+  describe("update status", () => {
+    it("shows current status in the select", async () => {
+      mockTicketResponse(createTicket({ status: "RESOLVED" }));
+
+      renderPage();
+
+      expect(await screen.findByText("Resolved")).toBeInTheDocument();
+    });
+
+    it("calls update API when changing status", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(createTicket({ status: "OPEN" }));
+      mockApi.patch.mockResolvedValue({
+        data: createTicket({ status: "RESOLVED" }),
+      });
+
+      renderPage();
+      await screen.findByText("Cannot login to dashboard");
+
+      const comboboxes = screen.getAllByRole("combobox");
+      const statusSelect = comboboxes[0];
+      await user.click(statusSelect);
+
+      const option = await screen.findByRole("option", { name: "Resolved" });
+      await user.click(option);
+
+      await vi.waitFor(() => {
+        expect(mockApi.patch).toHaveBeenCalledWith("/tickets/1", {
+          status: "RESOLVED",
+        });
+      });
+    });
+
+    it("calls update API when changing status to Closed", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(createTicket({ status: "OPEN" }));
+      mockApi.patch.mockResolvedValue({
+        data: createTicket({ status: "CLOSED" }),
+      });
+
+      renderPage();
+      await screen.findByText("Cannot login to dashboard");
+
+      const comboboxes = screen.getAllByRole("combobox");
+      const statusSelect = comboboxes[0];
+      await user.click(statusSelect);
+
+      const option = await screen.findByRole("option", { name: "Closed" });
+      await user.click(option);
+
+      await vi.waitFor(() => {
+        expect(mockApi.patch).toHaveBeenCalledWith("/tickets/1", {
+          status: "CLOSED",
+        });
+      });
+    });
+  });
+
+  describe("update category", () => {
+    it("shows current category in the select", async () => {
+      mockTicketResponse(createTicket({ category: "REFUND" }));
+
+      renderPage();
+
+      expect(await screen.findByText("Refund")).toBeInTheDocument();
+    });
+
+    it("shows 'None' when category is null", async () => {
+      mockTicketResponse(createTicket({ category: null }));
+
+      renderPage();
+
+      await screen.findByText("Cannot login to dashboard");
+      expect(screen.getByText("None")).toBeInTheDocument();
+    });
+
+    it("calls update API when changing category", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(createTicket({ category: "TECHNICAL" }));
+      mockApi.patch.mockResolvedValue({
+        data: createTicket({ category: "REFUND" }),
+      });
+
+      renderPage();
+      await screen.findByText("Cannot login to dashboard");
+
+      const comboboxes = screen.getAllByRole("combobox");
+      const categorySelect = comboboxes[1];
+      await user.click(categorySelect);
+
+      const option = await screen.findByRole("option", { name: "Refund" });
+      await user.click(option);
+
+      await vi.waitFor(() => {
+        expect(mockApi.patch).toHaveBeenCalledWith("/tickets/1", {
+          category: "REFUND",
+        });
+      });
+    });
+
+    it("calls update API with null when selecting 'None'", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(createTicket({ category: "GENERAL" }));
+      mockApi.patch.mockResolvedValue({
+        data: createTicket({ category: null }),
+      });
+
+      renderPage();
+      await screen.findByText("Cannot login to dashboard");
+
+      const comboboxes = screen.getAllByRole("combobox");
+      const categorySelect = comboboxes[1];
+      await user.click(categorySelect);
+
+      const option = await screen.findByRole("option", { name: "None" });
+      await user.click(option);
+
+      await vi.waitFor(() => {
+        expect(mockApi.patch).toHaveBeenCalledWith("/tickets/1", {
+          category: null,
+        });
+      });
+    });
   });
 });

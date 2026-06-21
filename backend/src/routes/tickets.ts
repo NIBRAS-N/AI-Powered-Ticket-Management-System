@@ -65,14 +65,20 @@ router.get("/", validate(ticketQuerySchema, { source: "query" }), async (req, re
   });
 });
 
-router.patch("/:id/assign", async (req, res) => {
+const updateTicketSchema = z.object({
+  status: z.enum(["OPEN", "RESOLVED", "CLOSED"]).optional(),
+  category: z.enum(["GENERAL", "TECHNICAL", "REFUND"]).nullable().optional(),
+  assigneeId: z.string().nullable().optional(),
+});
+
+router.patch("/:id", validate(updateTicketSchema), async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) {
     res.status(400).json({ error: "Invalid ticket ID" });
     return;
   }
 
-  const { assigneeId } = req.body as { assigneeId: string | null };
+  const { status, category, assigneeId } = req.body;
 
   const ticket = await prisma.ticket.findUnique({ where: { id } });
   if (!ticket) {
@@ -80,7 +86,7 @@ router.patch("/:id/assign", async (req, res) => {
     return;
   }
 
-  if (assigneeId) {
+  if (assigneeId !== undefined && assigneeId !== null) {
     const agent = await prisma.user.findUnique({ where: { id: assigneeId } });
     if (!agent || !agent.isActive) {
       res.status(404).json({ error: "Agent not found" });
@@ -88,9 +94,14 @@ router.patch("/:id/assign", async (req, res) => {
     }
   }
 
+  const data: Record<string, unknown> = {};
+  if (status !== undefined) data.status = status;
+  if (category !== undefined) data.category = category;
+  if (assigneeId !== undefined) data.assigneeId = assigneeId;
+
   const updated = await prisma.ticket.update({
     where: { id },
-    data: { assigneeId: assigneeId ?? null },
+    data,
     include: {
       assignee: { select: { id: true, name: true, email: true } },
       messages: { orderBy: { createdAt: "asc" } },

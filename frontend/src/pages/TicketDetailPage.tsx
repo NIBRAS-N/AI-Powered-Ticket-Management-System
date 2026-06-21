@@ -5,6 +5,8 @@ import api from "@/services/api";
 import type { Ticket, TicketStatus, TicketCategory, User } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+
+
 import {
   Card,
   CardContent,
@@ -19,22 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-function statusBadgeVariant(status: TicketStatus) {
-  switch (status) {
-    case "OPEN": return "default" as const;
-    case "RESOLVED": return "secondary" as const;
-    case "CLOSED": return "outline" as const;
-  }
-}
-
-function categoryBadgeVariant(category: TicketCategory) {
-  switch (category) {
-    case "GENERAL": return "outline" as const;
-    case "TECHNICAL": return "secondary" as const;
-    case "REFUND": return "destructive" as const;
-  }
-}
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleString();
@@ -57,9 +43,9 @@ export default function TicketDetailPage() {
     queryFn: () => api.get<Agent[]>("/tickets/agents").then((res) => res.data),
   });
 
-  const assignMutation = useMutation({
-    mutationFn: (assigneeId: string | null) =>
-      api.patch<Ticket>(`/tickets/${id}/assign`, { assigneeId }).then((res) => res.data),
+  const updateMutation = useMutation({
+    mutationFn: (data: Partial<Pick<Ticket, "status" | "category" | "assigneeId">>) =>
+      api.patch<Ticket>(`/tickets/${id}`, data).then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket", id] });
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
@@ -126,21 +112,44 @@ export default function TicketDetailPage() {
             <div>
               <dt className="text-sm text-muted-foreground">Status</dt>
               <dd className="mt-1">
-                <Badge variant={statusBadgeVariant(ticket.status)}>
-                  {ticket.status}
-                </Badge>
+                <Select
+                  value={ticket.status}
+                  onValueChange={(value) =>
+                    updateMutation.mutate({ status: value as TicketStatus })
+                  }
+                  disabled={updateMutation.isPending}
+                >
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OPEN">Open</SelectItem>
+                    <SelectItem value="RESOLVED">Resolved</SelectItem>
+                    <SelectItem value="CLOSED">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
               </dd>
             </div>
             <div>
               <dt className="text-sm text-muted-foreground">Category</dt>
               <dd className="mt-1">
-                {ticket.category ? (
-                  <Badge variant={categoryBadgeVariant(ticket.category)}>
-                    {ticket.category}
-                  </Badge>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
+                <Select
+                  value={ticket.category ?? "none"}
+                  onValueChange={(value) =>
+                    updateMutation.mutate({ category: value === "none" ? null : value as TicketCategory })
+                  }
+                  disabled={updateMutation.isPending}
+                >
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="GENERAL">General</SelectItem>
+                    <SelectItem value="TECHNICAL">Technical</SelectItem>
+                    <SelectItem value="REFUND">Refund</SelectItem>
+                  </SelectContent>
+                </Select>
               </dd>
             </div>
             <div>
@@ -149,9 +158,9 @@ export default function TicketDetailPage() {
                 <Select
                   value={ticket.assigneeId ?? "unassigned"}
                   onValueChange={(value) =>
-                    assignMutation.mutate(value === "unassigned" ? null : value)
+                    updateMutation.mutate({ assigneeId: value === "unassigned" ? null : value })
                   }
-                  disabled={assignMutation.isPending}
+                  disabled={updateMutation.isPending}
                 >
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Select agent..." />
