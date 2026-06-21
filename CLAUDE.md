@@ -137,8 +137,8 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
 - **Frontend types**: `Ticket`, `Message`, `TicketStatus`, `TicketCategory`, `SenderType`, `KnowledgeBaseArticle`, `DashboardStats` at `frontend/src/types/index.ts`
 
 ### Inbound Email Webhook
-- **Route**: `POST /api/webhooks/inbound-email` (`backend/src/routes/webhooks.ts`) — no auth middleware (public webhook), protected by `verifyWebhook` middleware
-- **Webhook auth**: `backend/src/middleware/verify-webhook.ts` — validates `Authorization: Basic` header against `WEBHOOK_AUTH_TOKEN` env var; skips validation if token is not configured
+- **Route**: `POST /api/webhooks/inbound-email` (`backend/src/routes/webhooks.ts`) — public endpoint, protected by `requireWebhookSecret` middleware
+- **Webhook auth**: `backend/src/middleware/require-webhook-secret.ts` — validates `x-webhook-secret` header against `WEBHOOK_AUTH_TOKEN` env var; returns 500 if env var not configured (fail-closed), 401 if header missing, 403 if invalid
 - **Email parser**: `backend/src/services/email-parser.service.ts`
   - `inboundEmailSchema` — zod schema validating SendGrid inbound parse payload (`from`, `to`, `subject`, `text`, optional `envelope`)
   - `parseInboundEmail()` — extracts sender name/email, strips Re:/Fwd: prefixes, detects ticket references via `support+<id>@` plus-addressing or `[Ticket #<id>]` in subject
@@ -147,8 +147,8 @@ Follow `implementation-plan.md` for phased build order. Reference `mvp.md` for f
   - `addMessageToTicket()` — adds message to existing ticket; reopens RESOLVED tickets when student replies; rejects messages on CLOSED tickets; uses `$transaction`
   - `findTicketById()` — simple lookup by ID
   - `isDuplicate()` — deduplication check: matches sender + subject + body within a 5-minute window against both tickets and messages
-- **Flow**: Inbound email → validate webhook auth → parse & validate payload → check duplicate → thread onto existing ticket (if referenced and sender matches) → or create new ticket
-- **Env**: `WEBHOOK_AUTH_TOKEN` (optional) in `backend/src/config/env.ts`
+- **Flow**: Inbound email → validate `x-webhook-secret` header → parse & validate payload → check duplicate → thread onto existing ticket (if referenced and sender matches) → or create new ticket
+- **Env**: `WEBHOOK_AUTH_TOKEN` (required) in `backend/src/config/env.ts` — must be set or webhook returns 500
 
 ## E2E Testing — Playwright
 

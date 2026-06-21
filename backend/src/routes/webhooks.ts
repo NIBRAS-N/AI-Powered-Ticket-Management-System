@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { verifyWebhook } from "../middleware/verify-webhook.js";
+import { requireWebhookSecret } from "../middleware/require-webhook-secret.js";
 import { validate } from "../middleware/validate.js";
 import {
   inboundEmailSchema,
@@ -14,7 +14,7 @@ const validateInboundEmail = validate(inboundEmailSchema, {
   formatError: (message) => ({ status: "rejected", message }),
 });
 
-router.post("/inbound-email", verifyWebhook, validateInboundEmail, async (req, res) => {
+router.post("/inbound-email", requireWebhookSecret, validateInboundEmail, async (req, res) => {
   const parsed = parseInboundEmail(req.body);
 
   const duplicate = await ticketService.isDuplicate({

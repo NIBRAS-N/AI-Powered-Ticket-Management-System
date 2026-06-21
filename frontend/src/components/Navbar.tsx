@@ -20,6 +20,12 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-6">
             <Link to="/" className="text-xl font-bold text-gray-900">AI Ticket System</Link>
+            <Link
+              to="/tickets"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Tickets
+            </Link>
             {user?.role === "ADMIN" && (
               <Link
                 to="/users"

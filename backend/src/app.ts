@@ -11,6 +11,7 @@ import { requireAuth } from "./middleware/require-auth.js";
 import { requireAdmin } from "./middleware/require-admin.js";
 import usersRouter from "./routes/users.js";
 import webhooksRouter from "./routes/webhooks.js";
+import ticketsRouter from "./routes/tickets.js";
 
 const app = express();
 
@@ -37,12 +38,14 @@ if (env.NODE_ENV === "production") {
   });
   app.use("/api/health", apiLimiter);
   app.use("/api/users", apiLimiter);
+  app.use("/api/tickets", apiLimiter);
   app.use("/api/me", apiLimiter);
 }
 
 app.use("/api/webhooks", webhooksRouter);
 app.use("/api/health", healthRouter);
 app.use("/api/users", requireAuth, requireAdmin, usersRouter);
+app.use("/api/tickets", requireAuth, ticketsRouter);
 
 app.get("/api/me", requireAuth, (req, res) => {
   res.json(req.user);
