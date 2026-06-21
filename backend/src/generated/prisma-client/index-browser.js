@@ -200,6 +200,15 @@ exports.Prisma.MessageScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.ReplyScalarFieldEnum = {
+  id: 'id',
+  body: 'body',
+  ticketId: 'ticketId',
+  userId: 'userId',
+  senderType: 'senderType',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -238,7 +247,8 @@ exports.Prisma.ModelName = {
   Verification: 'Verification',
   KnowledgeBaseArticle: 'KnowledgeBaseArticle',
   Ticket: 'Ticket',
-  Message: 'Message'
+  Message: 'Message',
+  Reply: 'Reply'
 };
 
 /**

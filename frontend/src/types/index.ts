@@ -46,6 +46,7 @@ export interface Ticket {
   assigneeId: string | null;
   assignee?: User;
   messages?: Message[];
+  replies?: Reply[];
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +57,16 @@ export interface Message {
   senderType: SenderType;
   senderName: string;
   content: string;
+  createdAt: string;
+}
+
+export interface Reply {
+  id: number;
+  body: string;
+  ticketId: number;
+  userId: string | null;
+  user?: Pick<User, "id" | "name" | "email"> | null;
+  senderType: SenderType;
   createdAt: string;
 }
 

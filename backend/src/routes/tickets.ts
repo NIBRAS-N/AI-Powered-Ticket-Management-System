@@ -105,6 +105,10 @@ router.patch("/:id", validate(updateTicketSchema), async (req, res) => {
     include: {
       assignee: { select: { id: true, name: true, email: true } },
       messages: { orderBy: { createdAt: "asc" } },
+      replies: {
+        orderBy: { createdAt: "asc" },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      },
     },
   });
 
@@ -123,6 +127,10 @@ router.get("/:id", async (req, res) => {
     include: {
       assignee: { select: { id: true, name: true, email: true } },
       messages: { orderBy: { createdAt: "asc" } },
+      replies: {
+        orderBy: { createdAt: "asc" },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      },
     },
   });
 
@@ -132,6 +140,45 @@ router.get("/:id", async (req, res) => {
   }
 
   res.json(ticket);
+});
+
+const createReplySchema = z.object({
+  body: z.string().min(1).max(5000),
+  senderType: z.enum(["STUDENT", "AGENT"]),
+});
+
+router.post("/:id/replies", validate(createReplySchema), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  if (ticket.status === "CLOSED") {
+    res.status(400).json({ error: "Cannot reply to a closed ticket" });
+    return;
+  }
+
+  const { body, senderType } = req.body;
+  const userId = senderType === "AGENT" ? req.user!.id : null;
+
+  const [reply] = await prisma.$transaction([
+    prisma.reply.create({
+      data: { body, ticketId: id, userId, senderType },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    }),
+    ...(ticket.status === "RESOLVED" && senderType === "STUDENT"
+      ? [prisma.ticket.update({ where: { id }, data: { status: "OPEN" } })]
+      : [prisma.ticket.update({ where: { id }, data: { updatedAt: new Date() } })]),
+  ]);
+
+  res.status(201).json(reply);
 });
 
 export default router;

@@ -1,11 +1,12 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Send } from "lucide-react";
 import api from "@/services/api";
-import type { Ticket, TicketStatus, TicketCategory, User } from "@/types";
+import type { Ticket, TicketStatus, TicketCategory, User, Reply } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
+import { Textarea } from "@/components/ui/textarea";
 
 import {
   Card,
@@ -31,6 +32,7 @@ type Agent = Pick<User, "id" | "name" | "email">;
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const [replyBody, setReplyBody] = useState("");
 
   const { data: ticket, isPending, isError } = useQuery({
     queryKey: ["ticket", id],
@@ -49,6 +51,16 @@ export default function TicketDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket", id] });
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    },
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: (data: { body: string; senderType: string }) =>
+      api.post<Reply>(`/tickets/${id}/replies`, data).then((res) => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket", id] });
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      setReplyBody("");
     },
   });
 
@@ -237,6 +249,78 @@ export default function TicketDetailPage() {
                 </div>
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Replies{ticket.replies && ` (${ticket.replies.length})`}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!ticket.replies || ticket.replies.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">No replies yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {ticket.replies.map((reply) => (
+                <div
+                  key={reply.id}
+                  className={`rounded-lg border p-4 ${
+                    reply.senderType === "AGENT" ? "bg-muted/50 ml-8" : "mr-8"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">
+                        {reply.user?.name ?? "Customer"}
+                      </span>
+                      <Badge variant={reply.senderType === "AGENT" ? "secondary" : "outline"} className="text-xs">
+                        {reply.senderType}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{formatDate(reply.createdAt)}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm">{reply.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {ticket.status !== "CLOSED" && (
+            <form
+              className="mt-6 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!replyBody.trim()) return;
+                replyMutation.mutate({ body: replyBody.trim(), senderType: "AGENT" });
+              }}
+            >
+              <Textarea
+                placeholder="Write a reply..."
+                value={replyBody}
+                onChange={(e) => setReplyBody(e.target.value)}
+                rows={3}
+                disabled={replyMutation.isPending}
+              />
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!replyBody.trim() || replyMutation.isPending}
+                >
+                  <Send className="mr-2 size-4" />
+                  {replyMutation.isPending ? "Sending..." : "Send Reply"}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {ticket.status === "CLOSED" && (
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              This ticket is closed. Replies are disabled.
+            </p>
           )}
         </CardContent>
       </Card>

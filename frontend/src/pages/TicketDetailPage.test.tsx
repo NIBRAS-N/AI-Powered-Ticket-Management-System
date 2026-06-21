@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { vi } from "vitest";
 import TicketDetailPage from "./TicketDetailPage";
-import type { Ticket, Message } from "@/types";
+import type { Ticket, Message, Reply } from "@/types";
 
 vi.mock("@/services/api", () => {
   return {
@@ -34,6 +34,20 @@ function createTicket(overrides: Partial<Ticket> = {}): Ticket {
     createdAt: "2025-06-01T10:00:00Z",
     updatedAt: "2025-06-01T12:00:00Z",
     messages: [],
+    replies: [],
+    ...overrides,
+  };
+}
+
+function createReply(overrides: Partial<Reply> = {}): Reply {
+  return {
+    id: 1,
+    body: "We are looking into this issue.",
+    ticketId: 1,
+    userId: "agent-1",
+    user: { id: "agent-1", name: "Alice Agent", email: "alice@example.com" },
+    senderType: "AGENT",
+    createdAt: "2025-06-01T14:00:00Z",
     ...overrides,
   };
 }
@@ -390,6 +404,153 @@ describe("TicketDetailPage", () => {
           category: null,
         });
       });
+    });
+  });
+
+  describe("replies", () => {
+    it("shows 'No replies yet' when ticket has no replies", async () => {
+      mockTicketResponse(createTicket({ replies: [] }));
+
+      renderPage();
+
+      expect(await screen.findByText("No replies yet.")).toBeInTheDocument();
+    });
+
+    it("renders replies with sender info and badges", async () => {
+      const replies = [
+        createReply({ id: 1, senderType: "STUDENT", userId: null, user: null, body: "I need more help" }),
+        createReply({ id: 2, senderType: "AGENT", body: "Sure, let me check" }),
+      ];
+      mockTicketResponse(createTicket({ replies }));
+
+      renderPage();
+
+      expect(await screen.findByText("I need more help")).toBeInTheDocument();
+      expect(screen.getByText("Sure, let me check")).toBeInTheDocument();
+      expect(screen.getByText("Replies (2)")).toBeInTheDocument();
+    });
+
+    it("shows 'Customer' for replies without a user", async () => {
+      const replies = [
+        createReply({ id: 1, senderType: "STUDENT", userId: null, user: null, body: "Customer question" }),
+      ];
+      mockTicketResponse(createTicket({ replies }));
+
+      renderPage();
+
+      await screen.findByText("Customer question");
+      expect(screen.getByText("Customer")).toBeInTheDocument();
+    });
+
+    it("shows agent name for agent replies", async () => {
+      const replies = [
+        createReply({ id: 1, senderType: "AGENT", user: { id: "agent-1", name: "Alice Agent", email: "alice@example.com" }, body: "Agent response" }),
+      ];
+      mockTicketResponse(createTicket({ replies }));
+
+      renderPage();
+
+      expect(await screen.findByText("Agent response")).toBeInTheDocument();
+    });
+
+    it("shows reply form for OPEN tickets", async () => {
+      mockTicketResponse(createTicket({ status: "OPEN" }));
+
+      renderPage();
+
+      await screen.findByText("Cannot login to dashboard");
+      expect(screen.getByPlaceholderText("Write a reply...")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /send reply/i })).toBeInTheDocument();
+    });
+
+    it("shows reply form for RESOLVED tickets", async () => {
+      mockTicketResponse(createTicket({ status: "RESOLVED" }));
+
+      renderPage();
+
+      await screen.findByText("Cannot login to dashboard");
+      expect(screen.getByPlaceholderText("Write a reply...")).toBeInTheDocument();
+    });
+
+    it("hides reply form and shows disabled message for CLOSED tickets", async () => {
+      mockTicketResponse(createTicket({ status: "CLOSED" }));
+
+      renderPage();
+
+      await screen.findByText("Cannot login to dashboard");
+      expect(screen.queryByPlaceholderText("Write a reply...")).not.toBeInTheDocument();
+      expect(screen.getByText("This ticket is closed. Replies are disabled.")).toBeInTheDocument();
+    });
+
+    it("disables send button when textarea is empty", async () => {
+      mockTicketResponse(createTicket({ status: "OPEN" }));
+
+      renderPage();
+
+      await screen.findByText("Cannot login to dashboard");
+      expect(screen.getByRole("button", { name: /send reply/i })).toBeDisabled();
+    });
+
+    it("enables send button when textarea has content", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(createTicket({ status: "OPEN" }));
+
+      renderPage();
+
+      await screen.findByText("Cannot login to dashboard");
+      await user.type(screen.getByPlaceholderText("Write a reply..."), "My reply");
+      expect(screen.getByRole("button", { name: /send reply/i })).toBeEnabled();
+    });
+
+    it("calls POST API when submitting a reply", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(createTicket({ status: "OPEN" }));
+      mockApi.post.mockResolvedValue({
+        data: createReply({ body: "My reply text" }),
+      });
+
+      renderPage();
+
+      await screen.findByText("Cannot login to dashboard");
+      await user.type(screen.getByPlaceholderText("Write a reply..."), "My reply text");
+      await user.click(screen.getByRole("button", { name: /send reply/i }));
+
+      await vi.waitFor(() => {
+        expect(mockApi.post).toHaveBeenCalledWith("/tickets/1/replies", {
+          body: "My reply text",
+          senderType: "AGENT",
+        });
+      });
+    });
+
+    it("clears textarea after successful reply", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(createTicket({ status: "OPEN" }));
+      mockApi.post.mockResolvedValue({
+        data: createReply({ body: "My reply text" }),
+      });
+
+      renderPage();
+
+      await screen.findByText("Cannot login to dashboard");
+      const textarea = screen.getByPlaceholderText("Write a reply...");
+      await user.type(textarea, "My reply text");
+      await user.click(screen.getByRole("button", { name: /send reply/i }));
+
+      await vi.waitFor(() => {
+        expect(textarea).toHaveValue("");
+      });
+    });
+
+    it("does not submit when textarea only has whitespace", async () => {
+      const user = userEvent.setup();
+      mockTicketResponse(createTicket({ status: "OPEN" }));
+
+      renderPage();
+
+      await screen.findByText("Cannot login to dashboard");
+      await user.type(screen.getByPlaceholderText("Write a reply..."), "   ");
+      expect(screen.getByRole("button", { name: /send reply/i })).toBeDisabled();
     });
   });
 });

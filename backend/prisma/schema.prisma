@@ -22,6 +22,7 @@ model User {
   sessions        Session[]
   accounts        Account[]
   assignedTickets Ticket[]
+  replies         Reply[]
 
   @@unique([email])
   @@map("user")
@@ -112,6 +113,7 @@ model Ticket {
   assigneeId  String?
   assignee    User?           @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   messages    Message[]
+  replies     Reply[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -133,4 +135,18 @@ model Message {
 
   @@index([ticketId])
   @@map("message")
+}
+
+model Reply {
+  id         Int        @id @default(autoincrement())
+  body       String
+  ticketId   Int
+  ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  senderType SenderType
+  createdAt  DateTime   @default(now())
+
+  @@index([ticketId])
+  @@map("reply")
 }
