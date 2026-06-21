@@ -12,17 +12,25 @@ const ticketQuerySchema = z.object({
   category: z.enum(["GENERAL", "TECHNICAL", "REFUND"]).optional(),
   sortBy: z.enum(sortableFields).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  search: z.string().trim().optional(),
 });
 
 const router = Router();
 
 router.get("/", validate(ticketQuerySchema, { source: "query" }), async (req, res) => {
-  const { page, limit, status, category, sortBy, sortOrder } = req.body;
+  const { page, limit, status, category, sortBy, sortOrder, search } = req.body;
   const skip = (page - 1) * limit;
 
   const where: Record<string, unknown> = {};
   if (status) where.status = status;
   if (category) where.category = category;
+  if (search) {
+    where.OR = [
+      { subject: { contains: search, mode: "insensitive" } },
+      { senderName: { contains: search, mode: "insensitive" } },
+      { senderEmail: { contains: search, mode: "insensitive" } },
+    ];
+  }
 
   const [tickets, total] = await Promise.all([
     prisma.ticket.findMany({

@@ -7,11 +7,12 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
 import api from "@/services/api";
 import type { Ticket, TicketStatus, TicketCategory, PaginatedResponse } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -125,11 +126,29 @@ function SortIcon({ isSorted }: { isSorted: false | "asc" | "desc" }) {
   return <ArrowUpDown className="size-4 text-muted-foreground/50" />;
 }
 
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages: (number | "...")[] = [1];
+
+  if (current > 3) pages.push("...");
+
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+
+  if (current < total - 2) pages.push("...");
+
+  pages.push(total);
+  return pages;
+}
+
 function fetchTickets(
   page: number,
   sorting: SortingState,
   status?: TicketStatus,
   category?: TicketCategory,
+  search?: string,
 ) {
   const sortBy = sorting[0]?.id ?? "createdAt";
   const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
@@ -143,6 +162,7 @@ function fetchTickets(
         sortOrder,
         ...(status && { status }),
         ...(category && { category }),
+        ...(search && { search }),
       },
     })
     .then((res) => res.data);
@@ -153,10 +173,12 @@ export default function TicketsPage() {
   const [statusFilter, setStatusFilter] = useState<TicketStatus | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<TicketCategory | undefined>();
   const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ["tickets", page, sorting, statusFilter, categoryFilter],
-    queryFn: () => fetchTickets(page, sorting, statusFilter, categoryFilter),
+    queryKey: ["tickets", page, sorting, statusFilter, categoryFilter, search],
+    queryFn: () => fetchTickets(page, sorting, statusFilter, categoryFilter, search),
   });
 
   const table = useReactTable({
@@ -181,11 +203,44 @@ export default function TicketsPage() {
     setPage(1);
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearch(searchInput.trim());
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Tickets</h1>
         <p className="text-muted-foreground">View and manage support tickets.</p>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-4">
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by subject, sender..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9 w-[300px]"
+            />
+          </div>
+          <Button type="submit" variant="secondary" size="default">
+            Search
+          </Button>
+          {search && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="default"
+              onClick={() => { setSearchInput(""); setSearch(""); setPage(1); }}
+            >
+              Clear
+            </Button>
+          )}
+        </form>
       </div>
 
       <div className="flex flex-wrap gap-4">
@@ -319,23 +374,38 @@ export default function TicketsPage() {
                   <p className="text-sm text-muted-foreground">
                     Page {data.page} of {data.totalPages}
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon"
+                      className="size-8"
                       onClick={() => setPage((p) => p - 1)}
                       disabled={page <= 1}
                     >
                       <ChevronLeft className="size-4" />
-                      Previous
                     </Button>
+                    {getPageNumbers(page, data.totalPages).map((p, i) =>
+                      p === "..." ? (
+                        <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground">...</span>
+                      ) : (
+                        <Button
+                          key={p}
+                          variant={page === p ? "default" : "outline"}
+                          size="icon"
+                          className="size-8"
+                          onClick={() => setPage(p)}
+                        >
+                          {p}
+                        </Button>
+                      ),
+                    )}
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon"
+                      className="size-8"
                       onClick={() => setPage((p) => p + 1)}
                       disabled={page >= data.totalPages}
                     >
-                      Next
                       <ChevronRight className="size-4" />
                     </Button>
                   </div>
